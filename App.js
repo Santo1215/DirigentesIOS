@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { API_URL } from './backend/src/config/api';
 import {
   StyleSheet,
   Text,
@@ -17,7 +18,7 @@ import Svg, { Path } from 'react-native-svg';
 
 const { width, height } = Dimensions.get('window');
 
-const App = () => {
+const App = ({navigation}) => {
   const [mostrarPassword, setMostrarPassword] = useState(false);
   const [usuario, setUsuario] = useState('');
   const [password, setPassword] = useState('');
@@ -48,11 +49,11 @@ const App = () => {
       alert(data.message || 'Error al iniciar sesión');
       return;
     }
-
+    navigation.replace('Home', {
+      nombre: data.usuario.nombre,
+      apellido: data.usuario.apellido,
+    });
     console.log('LOGIN OK:', data);
-
-    // aquí luego guardas el token
-    // AsyncStorage.setItem('token', data.token);
 
   } catch (error) {
     console.error(error);
@@ -152,7 +153,7 @@ const App = () => {
               </View>
 
               {/* Botón de ingreso */}
-              <TouchableOpacity style={styles.button}>
+              <TouchableOpacity style={styles.button} onPress={handleLogin}>
                 <Text style={styles.buttonText}>Ingresar</Text>
               </TouchableOpacity>
             </View>
