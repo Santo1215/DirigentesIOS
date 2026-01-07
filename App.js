@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { API_URL } from './backend/src/config/api';
+import { API_URL } from './api';
 import {
   StyleSheet,
   Text,

@@ -1,14 +1,9 @@
 // services/api.js
 import axios from 'axios';
-
-// URL de tu backend en Railway
-const RAILWAY_URL = 'https://dirigentes-backend.up.railway.app';
-
-// Para desarrollo local (opcional)
-// const RAILWAY_URL = 'http://192.168.1.100:3000';
+const API_URL = 'https://dirigentes-production.up.railway.app';
 
 const api = axios.create({
-  baseURL: RAILWAY_URL,
+  baseURL: API_URL,
   timeout: 10000, // 10 segundos timeout
   headers: {
     'Content-Type': 'application/json',
