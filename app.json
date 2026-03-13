@@ -32,7 +32,12 @@
       ]
     },
     "web": {
-      "favicon": "./assets/logo.png"
+      "favicon": "./assets/logo.png",
+      "name": "MyDiri",
+      "shortName": "MyDiri",
+      "backgroundColor": "#ffffff",
+      "themeColor": "#ffffff",
+      "display": "standalone"
     },
     "plugins": [
       "@react-native-community/datetimepicker"
