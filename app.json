@@ -32,12 +32,30 @@
       ]
     },
     "web": {
-      "favicon": "./assets/Icono.png",
       "name": "MyDiri",
-      "shortName": "MyDiri",  
+      "shortName": "MyDiri",
+      "favicon": "./assets/icon-192.png",
       "backgroundColor": "#ffffff",
       "themeColor": "#ffffff",
-      "display": "standalone"
+      "display": "standalone",
+      "icons": [
+        {
+          "src": "./assets/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        },
+        {
+          "src": "./assets/icon-512.png",
+          "sizes": "512x512",
+          "type": "image/png"
+        },
+        {
+          "src": "./assets/icon-maskable.png",
+          "sizes": "1024x1024",
+          "type": "image/png",
+          "purpose": "maskable"
+        }
+      ]
     },
     "plugins": [
       "@react-native-community/datetimepicker"
