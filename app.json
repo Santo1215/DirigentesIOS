@@ -32,7 +32,7 @@
       ]
     },
     "web": {
-      "favicon": "./assets/Icono.png",
+      "favicon": "./assets/Icono-192.png",
       "name": "MyDiri",
       "shortName": "MyDiri",  
       "backgroundColor": "#ffffff",
