@@ -1,7 +1,9 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { UserContext } from '../context/UserContext';
 import { API_URL } from '../api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as LocalAuthentication from 'expo-local-authentication';
+import * as SecureStore from 'expo-secure-store';
 import {
   StyleSheet, Text, View, TextInput,
   TouchableOpacity, Image, Dimensions,
@@ -22,20 +24,52 @@ function LoginContent({ navigation }) {
   const [contrasena, setContrasena] = useState('');
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
   const [cargando, setCargando] = useState(false);
+  const [biometriaDisponible, setBiometriaDisponible] = useState(false);
+  const [tieneCreds, setTieneCreds] = useState(false);
 
-  const handleLogin = async () => {
-    if (!usuario || !contrasena) {
-      Alert.alert('Error', 'Completa todos los campos');
-      return;
+  // Al montar, verificar si hay biometría y credenciales guardadas
+  useEffect(() => {
+    verificarBiometria();
+  }, []);
+
+  const verificarBiometria = async () => {
+    const compatible = await LocalAuthentication.hasHardwareAsync();
+    const enrolled = await LocalAuthentication.isEnrolledAsync();
+    const usuarioGuardado = await SecureStore.getItemAsync('usuario');
+
+    if (compatible && enrolled && usuarioGuardado) {
+      setBiometriaDisponible(true);
+      setTieneCreds(true);
+      // Intentar biometría automáticamente al abrir
+      loginConBiometria();
     }
+  };
+
+  const loginConBiometria = async () => {
+    const result = await LocalAuthentication.authenticateAsync({
+      promptMessage: 'Ingresa con tu huella o Face ID',
+      fallbackLabel: 'Usar contraseña',
+      cancelLabel: 'Cancelar',
+    });
+
+    if (result.success) {
+      const usuarioGuardado = await SecureStore.getItemAsync('usuario');
+      const contrasenaGuardada = await SecureStore.getItemAsync('contrasena');
+      if (usuarioGuardado && contrasenaGuardada) {
+        await realizarLogin(usuarioGuardado, contrasenaGuardada);
+      }
+    }
+  };
+
+  const realizarLogin = async (user, pass) => {
     try {
       setCargando(true);
       const res = await fetch(`${API_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          usuario: usuario.trim(),
-          contrasena: contrasena.trim(),
+          usuario: user.trim(),
+          contrasena: pass.trim(),
         }),
       });
       const data = await res.json();
@@ -50,6 +84,37 @@ function LoginContent({ navigation }) {
       Alert.alert('Error', 'Error de conexión');
     } finally {
       setCargando(false);
+    }
+  };
+
+  const handleLogin = async () => {
+    if (!usuario || !contrasena) {
+      Alert.alert('Error', 'Completa todos los campos');
+      return;
+    }
+
+    await realizarLogin(usuario, contrasena);
+
+    // Si el login fue exitoso, preguntar si guardar credenciales
+    const compatible = await LocalAuthentication.hasHardwareAsync();
+    const enrolled = await LocalAuthentication.isEnrolledAsync();
+    if (compatible && enrolled) {
+      Alert.alert(
+        '¿Activar biometría?',
+        'La próxima vez podrás ingresar con huella o Face ID',
+        [
+          { text: 'No', style: 'cancel' },
+          {
+            text: 'Sí, activar',
+            onPress: async () => {
+              await SecureStore.setItemAsync('usuario', usuario.trim());
+              await SecureStore.setItemAsync('contrasena', contrasena.trim());
+              setTieneCreds(true);
+              setBiometriaDisponible(true);
+            },
+          },
+        ]
+      );
     }
   };
 
@@ -77,7 +142,6 @@ function LoginContent({ navigation }) {
         bounces={false}
         showsVerticalScrollIndicator={false}
       >
-        {/* Logo */}
         <View style={styles.logoContainer}>
           <Image
             source={require('../assets/logo.png')}
@@ -86,10 +150,8 @@ function LoginContent({ navigation }) {
           />
         </View>
 
-        {/* Spacer flexible */}
         <View style={{ flex: 1 }} />
 
-        {/* Ola inline */}
         <Svg
           width={width}
           height={80}
@@ -104,7 +166,6 @@ function LoginContent({ navigation }) {
           />
         </Svg>
 
-        {/* Formulario */}
         <View style={styles.form}>
           <Text style={styles.title}>Bienvenido</Text>
 
@@ -152,6 +213,22 @@ function LoginContent({ navigation }) {
               {cargando ? 'Ingresando...' : 'Ingresar'}
             </Text>
           </TouchableOpacity>
+
+          {/* Botón biometría */}
+          {biometriaDisponible && tieneCreds && (
+            <TouchableOpacity
+              style={styles.biometriaBtn}
+              onPress={loginConBiometria}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={Platform.OS === 'ios' ? 'scan' : 'finger-print'}
+                size={32}
+                color="#F5A300"
+              />
+              <Text style={styles.biometriaText}>Ingresar con biometría</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -168,7 +245,7 @@ export default function Login({ navigation }) {
 
 const styles = StyleSheet.create({
   backgroundImage: {
-    width: '700',
+    width: '100%',
     height: '110%',
   },
   overlay: {
@@ -237,5 +314,15 @@ const styles = StyleSheet.create({
     color: '#000',
     fontSize: 17,
     fontWeight: '700',
+  },
+  biometriaBtn: {
+    marginTop: 20,
+    alignItems: 'center',
+    gap: 8,
+  },
+  biometriaText: {
+    color: '#F5A300',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

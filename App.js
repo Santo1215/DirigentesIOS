@@ -18,9 +18,6 @@ const Stack = createNativeStackNavigator();
 
 export default function App() {
   const [user, setUser] = useState(null);
-  useEffect(() => {
-    document.title = "MyDiri";
-  }, []);
   return (
     <UserContext.Provider value={{ user, setUser }}>
     <NavigationContainer>
