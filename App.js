@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { UserContext } from './context/UserContext';
-
 
 import Login from './screens/Login';
 import Home from './screens/Home';
@@ -19,6 +18,9 @@ const Stack = createNativeStackNavigator();
 
 export default function App() {
   const [user, setUser] = useState(null);
+  useEffect(() => {
+    document.title = "MyDiri";
+  }, []);
   return (
     <UserContext.Provider value={{ user, setUser }}>
     <NavigationContainer>
