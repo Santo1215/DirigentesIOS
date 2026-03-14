@@ -4,11 +4,11 @@
     "slug": "mydiri",
     "version": "1.0.1",
     "orientation": "portrait",
-    "icon": "./assets/Icono.png",
+    "icon": "./assets/icono.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
     "splash": {
-      "image": "./assets/Icono.png",
+      "image": "./assets/icono.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -23,7 +23,7 @@
       "package": "com.exodo.diris",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/Icono.png",
+        "foregroundImage": "./assets/icono.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -34,7 +34,7 @@
     "web": {
       "name": "MyDiri",
       "shortName": "MyDiri",
-      "favicon": "./assets/icon-192.png",
+      "favicon": "./assets/icono.png",
       "backgroundColor": "#ffffff",
       "themeColor": "#ffffff",
       "display": "standalone",
