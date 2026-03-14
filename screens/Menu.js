@@ -17,22 +17,21 @@ export default function Menu({ navigation }) {
   const [contrasenaNueva, setContrasenaNueva] = useState('');
   const [contrasenaConfirmar, setContrasenaConfirmar] = useState('');
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   const actualizarContrasena = async () => {
+      setErrorMsg('');
       if (!contrasenaActual || !contrasenaNueva || !contrasenaConfirmar) {
-        Alert.alert('Error', 'Completa todos los campos');
+        setErrorMsg('Completa todos los campos');
         return;
       }
        if (!validarContrasena(contrasenaNueva)) {
-        Alert.alert(
-          'Contraseña insegura',
-          'Debe tener al menos 9 caracteres, una mayúscula, una minúscula y un número'
-        );
+        setErrorMsg('Debe tener al menos 9 caracteres, una mayúscula, una minúscula y un número');
         return;
       }
 
       if (contrasenaNueva !== contrasenaConfirmar) {
-        Alert.alert('Error', 'Las contraseñas no coinciden');
+        setErrorMsg('Las contraseñas no coinciden');
         return;
       }
       try {
@@ -54,18 +53,19 @@ export default function Menu({ navigation }) {
         const data = await res.json();
 
         if (!res.ok) {
-          Alert.alert('Error', data.message);
+          setErrorMsg(data.message || 'Error al actualizar');
           return;
         }
 
-        Alert.alert('Éxito', data.message);
         setModalPassVisible(false);
         setContrasenaActual('');
         setContrasenaNueva('');
         setContrasenaConfirmar('');
+        setErrorMsg('');
+        Alert.alert('Éxito', data.message);
       } catch (err) {
         console.error(err);
-        Alert.alert('Error', 'Error de conexión');
+        setErrorMsg('Error de conexión');
       }
     };
   const validarContrasena = (password) => {
@@ -117,10 +117,10 @@ export default function Menu({ navigation }) {
         visible={modalPassVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setModalPassVisible(false)} // Android back
+        onRequestClose={() => { setModalPassVisible(false); setErrorMsg(''); }}
       >
         {/* TOCAR AFUERA CIERRA */}
-        <TouchableWithoutFeedback onPress={() => setModalPassVisible(false)}>
+        <TouchableWithoutFeedback onPress={() => { setModalPassVisible(false); setErrorMsg(''); }}>
           <View style={styles.modalOverlay}>
             
             {/* CONTENIDO NO CIERRA */}
@@ -128,49 +128,55 @@ export default function Menu({ navigation }) {
               <View style={styles.modalContent}>
                 <Text style={styles.modalTitle}>Cambiar contraseña</Text>
 
-                <View style={styles.contraseñaContainer}>
-                <TextInput
-                  placeholder="Contraseña actual"
-                  secureTextEntry={!mostrarContrasena}
-                  value={contrasenaActual}
-                  onChangeText={setContrasenaActual}
-                  style={styles.input}
-                  
-                />
-                <TouchableOpacity
-                  onPress={() => setMostrarContrasena(!mostrarContrasena)}
-                  style={{ position: 'absolute', right: 10, top: 12 }}
-                >
-                  <Ionicons
-                    name={mostrarContrasena ? 'eye-off' : 'eye'}
-                    size={24}
-                    color="#000"
+                {/* Campo: Contraseña actual */}
+                <View style={styles.inputRow}>
+                  <TextInput
+                    placeholder="Contraseña actual"
+                    secureTextEntry={!mostrarContrasena}
+                    value={contrasenaActual}
+                    onChangeText={setContrasenaActual}
+                    style={styles.inputFlex}
                   />
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setMostrarContrasena(!mostrarContrasena)}
+                    style={styles.eyeBtn}
+                  >
+                    <Ionicons
+                      name={mostrarContrasena ? 'eye-off' : 'eye'}
+                      size={22}
+                      color="#555"
+                    />
+                  </TouchableOpacity>
                 </View>
-            
-                <TextInput
-                  placeholder="Nueva contraseña"
-                  secureTextEntry={!mostrarContrasena}
-                  value={contrasenaNueva}
-                  onChangeText={setContrasenaNueva}
-                  style={styles.input}
-                />
-                
-                <TextInput
-                  placeholder="Confirmar nueva contraseña"
-                  secureTextEntry={!mostrarContrasena}
-                  value={contrasenaConfirmar}
-                  onChangeText={setContrasenaConfirmar}
-                  style={styles.input}
-                />
+
+                {/* Campo: Nueva contraseña */}
+                <View style={styles.inputRow}>
+                  <TextInput
+                    placeholder="Nueva contraseña"
+                    secureTextEntry={!mostrarContrasena}
+                    value={contrasenaNueva}
+                    onChangeText={setContrasenaNueva}
+                    style={styles.inputFlex}
+                  />
+                </View>
+
+                {/* Campo: Confirmar nueva contraseña */}
+                <View style={styles.inputRow}>
+                  <TextInput
+                    placeholder="Confirmar nueva contraseña"
+                    secureTextEntry={!mostrarContrasena}
+                    value={contrasenaConfirmar}
+                    onChangeText={setContrasenaConfirmar}
+                    style={styles.inputFlex}
+                  />
+                </View>
               
 
                 {/* BOTONES */}
                 <View style={styles.modalButtons}>
                   <TouchableOpacity
                     style={styles.cancelBtn}
-                    onPress={() => setModalPassVisible(false)}
+                    onPress={() => { setModalPassVisible(false); setErrorMsg(''); }}
                   >
                     <Text style={styles.cancelText}>Cancelar</Text>
                   </TouchableOpacity>
@@ -182,6 +188,11 @@ export default function Menu({ navigation }) {
                     <Text style={{ color: '#fff' }}>Actualizar</Text>
                   </TouchableOpacity>
                 </View>
+
+                {/* Mensaje de error inline */}
+                {errorMsg ? (
+                  <Text style={styles.errorText}>{errorMsg}</Text>
+                ) : null}
               </View>
             </TouchableWithoutFeedback>
 
@@ -311,15 +322,31 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  contrasenaContainer: {
+  inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 15,
-    paddingHorizontal: 20,
-    marginBottom: 40,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: '#ccc',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    marginTop: 10,
+  },
+
+  inputFlex: {
+    flex: 1,
+    paddingVertical: 10,
+  },
+
+  eyeBtn: {
+    paddingLeft: 8,
+    paddingVertical: 10,
+  },
+
+  errorText: {
+    color: '#c0392b',
+    fontSize: 13,
+    marginTop: 10,
+    textAlign: 'center',
   },
 
 });

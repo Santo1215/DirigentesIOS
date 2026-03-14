@@ -24,6 +24,7 @@ function LoginContent({ navigation }) {
   const [contrasena, setContrasena] = useState('');
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
   const [cargando, setCargando] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const [biometriaDisponible, setBiometriaDisponible] = useState(false);
   const [tieneCreds, setTieneCreds] = useState(false);
 
@@ -74,22 +75,23 @@ function LoginContent({ navigation }) {
       });
       const data = await res.json();
       if (!res.ok) {
-        Alert.alert('Error', data.message || 'Error al iniciar sesión');
+        setErrorMsg(data.message || 'Error al iniciar sesión');
         return;
       }
       await AsyncStorage.setItem('token', data.token);
       setUser({ dirigente: data.dirigente });
       navigation.replace('Home');
     } catch (error) {
-      Alert.alert('Error', 'Error de conexión');
+      setErrorMsg('Error de conexión');
     } finally {
       setCargando(false);
     }
   };
 
 const handleLogin = async () => {
+  setErrorMsg('');
   if (!usuario || !contrasena) {
-    Alert.alert('Error', 'Completa todos los campos');
+    setErrorMsg('Completa todos los campos');
     return;
   }
 
@@ -105,7 +107,7 @@ const handleLogin = async () => {
     });
     const data = await res.json();
     if (!res.ok) {
-      Alert.alert('Error', data.message || 'Error al iniciar sesión');
+      setErrorMsg(data.message || 'Error al iniciar sesión');
       return;
     }
 
@@ -140,14 +142,14 @@ const handleLogin = async () => {
             },
           ]
         );
-        return; // No navegar aún, esperar respuesta del Alert
+        return;
       }
     }
 
     navigation.replace('Home');
 
   } catch (error) {
-    Alert.alert('Error', 'Error de conexión');
+    setErrorMsg('Error de conexión');
   } finally {
     setCargando(false);
   }
@@ -248,6 +250,11 @@ const handleLogin = async () => {
               {cargando ? 'Ingresando...' : 'Ingresar'}
             </Text>
           </TouchableOpacity>
+
+          {/* Mensaje de error inline */}
+          {errorMsg ? (
+            <Text style={styles.errorText}>{errorMsg}</Text>
+          ) : null}
 
           {/* Botón biometría */}
           {biometriaDisponible && tieneCreds && (
@@ -359,5 +366,11 @@ const styles = StyleSheet.create({
     color: '#F5A300',
     fontSize: 14,
     fontWeight: '600',
+  },
+  errorText: {
+    color: '#ff6b6b',
+    fontSize: 13,
+    marginTop: 12,
+    textAlign: 'center',
   },
 });
