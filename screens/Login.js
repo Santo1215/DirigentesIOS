@@ -27,12 +27,12 @@ function LoginContent({ navigation }) {
   const [biometriaDisponible, setBiometriaDisponible] = useState(false);
   const [tieneCreds, setTieneCreds] = useState(false);
 
-  // Al montar, verificar si hay biometría y credenciales guardadas
   useEffect(() => {
     verificarBiometria();
   }, []);
 
   const verificarBiometria = async () => {
+    if (Platform.OS === 'web') return;
     const compatible = await LocalAuthentication.hasHardwareAsync();
     const enrolled = await LocalAuthentication.isEnrolledAsync();
     const usuarioGuardado = await SecureStore.getItemAsync('usuario');
@@ -87,36 +87,71 @@ function LoginContent({ navigation }) {
     }
   };
 
-  const handleLogin = async () => {
-    if (!usuario || !contrasena) {
-      Alert.alert('Error', 'Completa todos los campos');
+const handleLogin = async () => {
+  if (!usuario || !contrasena) {
+    Alert.alert('Error', 'Completa todos los campos');
+    return;
+  }
+
+  try {
+    setCargando(true);
+    const res = await fetch(`${API_URL}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        usuario: usuario.trim(),
+        contrasena: contrasena.trim(),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      Alert.alert('Error', data.message || 'Error al iniciar sesión');
       return;
     }
 
-    await realizarLogin(usuario, contrasena);
+    await AsyncStorage.setItem('token', data.token);
+    setUser({ dirigente: data.dirigente });
 
-    // Si el login fue exitoso, preguntar si guardar credenciales
-    const compatible = await LocalAuthentication.hasHardwareAsync();
-    const enrolled = await LocalAuthentication.isEnrolledAsync();
-    if (compatible && enrolled) {
-      Alert.alert(
-        '¿Activar biometría?',
-        'La próxima vez podrás ingresar con huella o Face ID',
-        [
-          { text: 'No', style: 'cancel' },
-          {
-            text: 'Sí, activar',
-            onPress: async () => {
-              await SecureStore.setItemAsync('usuario', usuario.trim());
-              await SecureStore.setItemAsync('contrasena', contrasena.trim());
-              setTieneCreds(true);
-              setBiometriaDisponible(true);
+    // Preguntar biometría ANTES de navegar, solo en móvil
+    if (Platform.OS !== 'web') {
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      const yaGuardado = await SecureStore.getItemAsync('usuario');
+
+      if (compatible && enrolled && !yaGuardado) {
+        Alert.alert(
+          '¿Activar biometría?',
+          'La próxima vez podrás ingresar con huella o Face ID',
+          [
+            {
+              text: 'No',
+              style: 'cancel',
+              onPress: () => navigation.replace('Home'),
             },
-          },
-        ]
-      );
+            {
+              text: 'Sí, activar',
+              onPress: async () => {
+                await SecureStore.setItemAsync('usuario', usuario.trim());
+                await SecureStore.setItemAsync('contrasena', contrasena.trim());
+                setBiometriaDisponible(true);
+                setTieneCreds(true);
+                navigation.replace('Home');
+              },
+            },
+          ]
+        );
+        return; // No navegar aún, esperar respuesta del Alert
+      }
     }
-  };
+
+    navigation.replace('Home');
+
+  } catch (error) {
+    Alert.alert('Error', 'Error de conexión');
+  } finally {
+    setCargando(false);
+  }
+};
 
   return (
     <KeyboardAvoidingView
