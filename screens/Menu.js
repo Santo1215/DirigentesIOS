@@ -1,5 +1,5 @@
 import { useContext, useState } from 'react';
-import {View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Alert, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Alert, TouchableWithoutFeedback } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import BottomNav from '../components/navbar';
 import { UserContext } from '../context/UserContext';
@@ -20,54 +20,54 @@ export default function Menu({ navigation }) {
   const [errorMsg, setErrorMsg] = useState('');
 
   const actualizarContrasena = async () => {
-      setErrorMsg('');
-      if (!contrasenaActual || !contrasenaNueva || !contrasenaConfirmar) {
-        setErrorMsg('Completa todos los campos');
-        return;
-      }
-       if (!validarContrasena(contrasenaNueva)) {
-        setErrorMsg('Debe tener al menos 9 caracteres, una mayúscula, una minúscula y un número');
-        return;
-      }
+    setErrorMsg('');
+    if (!contrasenaActual || !contrasenaNueva || !contrasenaConfirmar) {
+      setErrorMsg('Completa todos los campos');
+      return;
+    }
+    if (!validarContrasena(contrasenaNueva)) {
+      setErrorMsg('Debe tener al menos 9 caracteres, una mayúscula, una minúscula y un número');
+      return;
+    }
 
-      if (contrasenaNueva !== contrasenaConfirmar) {
-        setErrorMsg('Las contraseñas no coinciden');
-        return;
-      }
-      try {
-        const res = await fetch(
-          `${API_URL}/dirigente/${user.dirigente.id_dirigente}/contrasena`,
-          {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${user.token}`,
-            },
-            body: JSON.stringify({
-              contrasenaActual,
-              contrasenaNueva,
-            }),
-          }
-        );
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          setErrorMsg(data.message || 'Error al actualizar');
-          return;
+    if (contrasenaNueva !== contrasenaConfirmar) {
+      setErrorMsg('Las contraseñas no coinciden');
+      return;
+    }
+    try {
+      const res = await fetch(
+        `${API_URL}/dirigente/${user.dirigente.id_dirigente}/contrasena`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${user.token}`,
+          },
+          body: JSON.stringify({
+            contrasenaActual,
+            contrasenaNueva,
+          }),
         }
+      );
 
-        setModalPassVisible(false);
-        setContrasenaActual('');
-        setContrasenaNueva('');
-        setContrasenaConfirmar('');
-        setErrorMsg('');
-        Alert.alert('Éxito', data.message);
-      } catch (err) {
-        console.error(err);
-        setErrorMsg('Error de conexión');
+      const data = await res.json();
+
+      if (!res.ok) {
+        setErrorMsg(data.message || 'Error al actualizar');
+        return;
       }
-    };
+
+      setModalPassVisible(false);
+      setContrasenaActual('');
+      setContrasenaNueva('');
+      setContrasenaConfirmar('');
+      setErrorMsg('');
+      Alert.alert('Éxito', data.message);
+    } catch (err) {
+      console.error(err);
+      setErrorMsg('Error de conexión');
+    }
+  };
   const validarContrasena = (password) => {
     const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{9,}$/;
     return regex.test(password);
@@ -98,9 +98,9 @@ export default function Menu({ navigation }) {
         <SectionTitle title="Menú" />
 
         <View style={styles.grid}>
-          <MenuItem icon="document-text-outline" label="Actas" onPress={() => Linking.openURL('https://stly.link/8DVWF')} />
-          <MenuItem icon="calendar-outline" label="Cronogramas" onPress={() => {}} />
-          <MenuItem icon="time-outline" label="Asambleas" onPress={() => Linking.openURL('https://stly.link/8DVWm')} />
+          <MenuItem icon="document-text-outline" label="Actas" onPress={() => Linking.openURL('https://drive.google.com/drive/folders/1lzrdK3J9b7JVNWCG8GT0Njuz2-LogfOB')} />
+          <MenuItem icon="calendar-outline" label="Cronogramas" onPress={() => { }} />
+          <MenuItem icon="time-outline" label="Asambleas" onPress={() => Linking.openURL('https://drive.google.com/drive/folders/17cBGA5hulhUl53DNrEYgMAtbbtq-AGpW')} />
           <MenuItem
             icon="lock-closed-outline"
             label="Contraseña"
@@ -112,7 +112,7 @@ export default function Menu({ navigation }) {
           <Text style={styles.logoutText}>Cerrar sesión</Text>
         </TouchableOpacity>
       </View>
-    {/* MODAL CAMBIAR CONTRASEÑA */}
+      {/* MODAL CAMBIAR CONTRASEÑA */}
       <Modal
         visible={modalPassVisible}
         transparent
@@ -122,7 +122,7 @@ export default function Menu({ navigation }) {
         {/* TOCAR AFUERA CIERRA */}
         <TouchableWithoutFeedback onPress={() => { setModalPassVisible(false); setErrorMsg(''); }}>
           <View style={styles.modalOverlay}>
-            
+
             {/* CONTENIDO NO CIERRA */}
             <TouchableWithoutFeedback>
               <View style={styles.modalContent}>
@@ -170,7 +170,7 @@ export default function Menu({ navigation }) {
                     style={styles.inputFlex}
                   />
                 </View>
-              
+
 
                 {/* BOTONES */}
                 <View style={styles.modalButtons}>
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 10,
     padding: 20,
-  },  
+  },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   confirmBtn: {
-    flex: 1, 
+    flex: 1,
     marginTop: 20,
     backgroundColor: '#0E1525',
     paddingVertical: 14,
