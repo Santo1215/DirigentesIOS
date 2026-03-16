@@ -1,17 +1,35 @@
 import { useEffect, useState } from 'react';
 import { 
   View, Text, FlatList, Button, ActivityIndicator, 
-  StyleSheet, Alert, TouchableOpacity
+  StyleSheet, TouchableOpacity, Platform, TextInput, Modal
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../api';
 import QrScannerModal from '../components/QrScannerModal';
 import CodigoManualModal from '../components/CodigoManualModal';
 
+// DateTimePicker solo en móvil
+let DateTimePicker = null;
+if (Platform.OS !== 'web') {
+  DateTimePicker = require('@react-native-community/datetimepicker').default;
+}
+
+
+// Devuelve fecha local Colombia (UTC-5) como "YYYY-MM-DD"
+const getFechaLocal = () => {
+  const ahora = new Date();
+  const local = new Date(ahora.getTime() + (-5 * 60 * 60 * 1000));
+  return local.toISOString().split('T')[0];
+};
+
+// Parsea "YYYY-MM-DD" como fecha local evitando el bug UTC
+const parseFechaLocal = (fechaStr) => {
+  const [y, m, d] = fechaStr.split('-').map(Number);
+  return new Date(y, m - 1, d); // sin zona horaria → local
+};
 
 export default function AsistenciaScreen({ navigation }) {
-  const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+  const [fecha, setFecha] = useState(getFechaLocal());
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [qrVisible, setQrVisible] = useState(false);
@@ -22,6 +40,14 @@ export default function AsistenciaScreen({ navigation }) {
   
 
   const [token, setToken] = useState(null);
+  const [toastMsg, setToastMsg] = useState('');
+  const [accionModal, setAccionModal] = useState(false); // modal elegir QR o código
+  const [editarModal, setEditarModal] = useState(false); // modal marcar Tarde
+
+  const showToast = (msg) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(''), 3000);
+  };
 
   useEffect(() => {
     AsyncStorage.getItem('token').then(setToken);
@@ -57,13 +83,13 @@ export default function AsistenciaScreen({ navigation }) {
       const json = await res.json();
 
       if (!res.ok) {
-        Alert.alert('Error', json.error || 'No se pudo cargar asistencia');
+        showToast(json.error || 'No se pudo cargar asistencia');
         return;
       }
 
       setData(json);
     } catch (err) {
-      Alert.alert('Error', 'Error de conexión');
+      showToast('Error de conexión');
     } finally {
       setLoading(false);
     }
@@ -86,7 +112,7 @@ export default function AsistenciaScreen({ navigation }) {
 
       cargarAsistencia();
     } catch {
-      Alert.alert('Error', 'No se pudo actualizar asistencia');
+      showToast('No se pudo actualizar asistencia');
     }
   };
   const onPressDirigente = (item) => {
@@ -94,27 +120,12 @@ export default function AsistenciaScreen({ navigation }) {
 
     // AUSENTE → elegir método
     if (!item.estado) {
-      Alert.alert(
-        'Registrar asistencia',
-        `¿Cómo deseas registrar a ${item.nombre}?`,
-        [
-          { text: 'Escanear QR', onPress: () => setQrVisible(true) },
-          { text: 'Código manual', onPress: () => setCodigoVisible(true) },
-          { text: 'Cancelar', style: 'cancel' },
-        ]
-      );
+      setAccionModal(true);
       return;
     }
 
     // YA REGISTRADO → editar
-    Alert.alert(
-      'Editar asistencia',
-      `${item.nombre} ${item.apellido}`,
-      [
-        { text: 'Tarde', onPress: () => guardar(item.id_dirigente, 'Tarde') },
-        { text: 'Cancelar', style: 'cancel' },
-      ]
-    );
+    setEditarModal(true);
   };
 
 
@@ -239,21 +250,96 @@ export default function AsistenciaScreen({ navigation }) {
           cargarAsistencia();
         }}
       />
-      {mostrarPicker && (
-          <DateTimePicker
-            value={new Date(fecha)}
-            mode="date"
-            display="default"
-            maximumDate={new Date()}
-            onChange={(event, selectedDate) => {
-              setMostrarPicker(false);
-              if (selectedDate) {
-                const f = selectedDate.toISOString().split('T')[0];
-                setFecha(f);
-              }
-            }}
-          />
-        )}
+
+      {/* PICKER DE FECHA: nativo en móvil, input en web */}
+      {mostrarPicker && Platform.OS !== 'web' && DateTimePicker && (
+        <DateTimePicker
+          value={parseFechaLocal(fecha)}
+          mode="date"
+          display="default"
+          maximumDate={new Date()}
+          onChange={(event, selectedDate) => {
+            setMostrarPicker(false);
+            if (selectedDate) {
+              // Formatear manualmente para evitar bug UTC
+              const y = selectedDate.getFullYear();
+              const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
+              const d = String(selectedDate.getDate()).padStart(2, '0');
+              setFecha(`${y}-${m}-${d}`);
+            }
+          }}
+        />
+      )}
+      {mostrarPicker && Platform.OS === 'web' && (
+        <Modal transparent animationType="fade" visible={mostrarPicker} onRequestClose={() => setMostrarPicker(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <Text style={styles.modalTitle}>Seleccionar fecha</Text>
+              <input
+                type="date"
+                value={fecha}
+                max={getFechaLocal()}
+                onChange={(e) => {
+                  if (e.target.value) setFecha(e.target.value);
+                }}
+                style={{ fontSize: 16, padding: 8, borderRadius: 8, border: '1px solid #ccc', marginBottom: 16 }}
+              />
+              <TouchableOpacity style={styles.modalBtn} onPress={() => setMostrarPicker(false)}>
+                <Text style={{ color: '#fff', fontWeight: 'bold' }}>Confirmar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* MODAL: elegir método registro (ausente) */}
+      <Modal transparent animationType="fade" visible={accionModal} onRequestClose={() => setAccionModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>
+              Registrar asistencia{dirigenteSeleccionado ? ` — ${dirigenteSeleccionado.nombre}` : ''}
+            </Text>
+            <TouchableOpacity style={styles.modalBtn} onPress={() => { setAccionModal(false); setQrVisible(true); }}>
+              <Text style={{ color: '#fff', fontWeight: 'bold' }}>Escanear QR</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#D3DBEE', marginTop: 10 }]}
+              onPress={() => { setAccionModal(false); setCodigoVisible(true); }}>
+              <Text style={{ color: '#000', fontWeight: 'bold' }}>Ingresar código</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => { setAccionModal(false); setDirigenteSeleccionado(null); }}>
+              <Text style={{ color: '#666' }}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL: editar asistencia (ya registrado) */}
+      <Modal transparent animationType="fade" visible={editarModal} onRequestClose={() => setEditarModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>
+              {dirigenteSeleccionado ? `${dirigenteSeleccionado.nombre} ${dirigenteSeleccionado.apellido}` : ''}
+            </Text>
+            <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#FF9800' }]}
+              onPress={() => {
+                if (dirigenteSeleccionado) guardar(dirigenteSeleccionado.id_dirigente, 'Tarde');
+                setEditarModal(false);
+              }}>
+              <Text style={{ color: '#fff', fontWeight: 'bold' }}>Marcar Tarde</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => { setEditarModal(false); setDirigenteSeleccionado(null); }}>
+              <Text style={{ color: '#666' }}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Toast */}
+      {toastMsg ? (
+        <View style={styles.toast}>
+          <Text style={styles.toastText}>{toastMsg}</Text>
+        </View>
+      ) : null}
 
     </View>
   );
@@ -445,5 +531,52 @@ const styles = StyleSheet.create({
     fontSize: 40,
     color: '#F5A300',
     fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBox: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '80%',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  modalBtn: {
+    backgroundColor: '#FFA726',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 25,
+    width: '100%',
+    alignItems: 'center',
+  },
+  cancelBtn: {
+    marginTop: 12,
+    paddingVertical: 10,
+  },
+  toast: {
+    position: 'absolute',
+    bottom: 90,
+    left: 20,
+    right: 20,
+    backgroundColor: '#333',
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    zIndex: 999,
+  },
+  toastText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
   },
 });

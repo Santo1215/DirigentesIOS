@@ -1,16 +1,33 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, SectionList, ActivityIndicator,
-  StyleSheet, TouchableOpacity, section
+  StyleSheet, TouchableOpacity, Modal, Platform
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../api';
 import BottomNav from '../components/navbar';
 import WaveBackground from '../components/WaveBackground';
 
+let DateTimePicker = null;
+if (Platform.OS !== 'web') {
+  DateTimePicker = require('@react-native-community/datetimepicker').default;
+}
+
+const getFechaLocal = () => {
+  const ahora = new Date();
+  const y = ahora.getFullYear();
+  const m = String(ahora.getMonth() + 1).padStart(2, '0');
+  const d = String(ahora.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+const parseFechaLocal = (fechaStr) => {
+  const [y, m, d] = fechaStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
 export default function AsistenciaTribusScreen({ navigation }) {
-  const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+  const [fecha, setFecha] = useState(getFechaLocal());
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mostrarPicker, setMostrarPicker] = useState(false);
@@ -202,16 +219,43 @@ export default function AsistenciaTribusScreen({ navigation }) {
         )}
       />
 
-      {mostrarPicker && (
+      {mostrarPicker && Platform.OS !== 'web' && DateTimePicker && (
         <DateTimePicker
-          value={new Date(fecha)}
+          value={parseFechaLocal(fecha)}
           mode="date"
           maximumDate={new Date()}
           onChange={(e, d) => {
             setMostrarPicker(false);
-            if (d) setFecha(d.toISOString().split('T')[0]);
+            if (d) {
+              const y = d.getFullYear();
+              const m = String(d.getMonth() + 1).padStart(2, '0');
+              const dd = String(d.getDate()).padStart(2, '0');
+              setFecha(`${y}-${m}-${dd}`);
+            }
           }}
         />
+      )}
+      {mostrarPicker && Platform.OS === 'web' && (
+        <Modal transparent animationType="fade" visible={mostrarPicker} onRequestClose={() => setMostrarPicker(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 14 }}>Seleccionar fecha</Text>
+              <input
+                type="date"
+                value={fecha}
+                max={getFechaLocal()}
+                onChange={(e) => { if (e.target.value) setFecha(e.target.value); }}
+                style={{ fontSize: 16, padding: 8, borderRadius: 8, border: '1px solid #ccc', marginBottom: 16 }}
+              />
+              <TouchableOpacity
+                style={{ backgroundColor: '#FFA726', paddingVertical: 12, paddingHorizontal: 30, borderRadius: 25 }}
+                onPress={() => setMostrarPicker(false)}
+              >
+                <Text style={{ color: '#fff', fontWeight: 'bold' }}>Confirmar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       )}
       <WaveBackground />
       <BottomNav  navigation={navigation}/>
@@ -421,5 +465,18 @@ tribuStatAusentes: {
 tribuStatTotal: {
   color: '#555',
   fontWeight: 'bold',
+},
+modalOverlay: {
+  flex: 1,
+  backgroundColor: 'rgba(0,0,0,0.5)',
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+modalBox: {
+  backgroundColor: '#fff',
+  borderRadius: 16,
+  padding: 24,
+  width: '80%',
+  alignItems: 'center',
 },
 }

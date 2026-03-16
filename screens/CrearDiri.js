@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert
+  Modal,
+  Platform
 } from 'react-native';
 import { API_URL } from '../api';
 
@@ -17,14 +18,18 @@ export default function CrearDiri({ navigation }) {
     segundo_nombre:'',
     apellido: '',
   });
+  const [errorMsg, setErrorMsg] = useState('');
+  const [credsModal, setCredsModal] = useState(false);
+  const [credsData, setCredsData] = useState(null);
 
   const handleChange = (key, value) => {
     setForm({ ...form, [key]: value });
   };
 
   const crearDirigente = async () => {
+    setErrorMsg('');
     if (!form.nombre || !form.apellido) {
-      Alert.alert('Error', 'Completa todos los campos');
+      setErrorMsg('Completa todos los campos');
       return;
     }
 
@@ -45,27 +50,17 @@ export default function CrearDiri({ navigation }) {
       const data = await res.json();
 
       if (!res.ok) {
-        Alert.alert('Error', data.message || 'Error al crear dirigente');
+        setErrorMsg(data.message || 'Error al crear dirigente');
         return;
       }
 
-      Alert.alert(
-        'Dirigente creado',
-        `Usuario: ${data.dirigente.usuario}
-        \nContraseña: ${data.dirigente.contrasena}
-        \nRol: Levitando
-        \nQR generado automáticamente`
-      );
-
-      setForm({
-        nombre: '',
-        segundo_nombre: '',
-        apellido: '',
-      });
+      setCredsData(data.dirigente);
+      setCredsModal(true);
+      setForm({ nombre: '', segundo_nombre: '', apellido: '' });
 
     } catch (error) {
       console.error(error);
-      Alert.alert('Error', 'Error de conexión');
+      setErrorMsg('Error de conexión');
     }
   };
 
@@ -112,7 +107,32 @@ export default function CrearDiri({ navigation }) {
           <Text style={styles.buttonText}>Crear Dirigente</Text>
         </TouchableOpacity>
 
+        {errorMsg ? (
+          <Text style={styles.errorText}>{errorMsg}</Text>
+        ) : null}
+
       </ScrollView>
+
+      {/* MODAL CREDENCIALES */}
+      <Modal transparent animationType="fade" visible={credsModal} onRequestClose={() => setCredsModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>✅ Dirigente creado</Text>
+            <Text style={styles.modalLabel}>Usuario</Text>
+            <Text style={styles.modalValue}>{credsData?.usuario}</Text>
+            <Text style={styles.modalLabel}>Contraseña</Text>
+            <Text style={styles.modalValue}>{credsData?.contrasena}</Text>
+            <Text style={styles.modalLabel}>Rol</Text>
+            <Text style={styles.modalValue}>Levitando</Text>
+            <Text style={[styles.modalLabel, { marginTop: 10, color: '#888', fontSize: 12 }]}>
+              QR generado automáticamente
+            </Text>
+            <TouchableOpacity style={styles.modalBtn} onPress={() => setCredsModal(false)}>
+              <Text style={{ color: '#fff', fontWeight: 'bold' }}>Entendido</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -165,5 +185,52 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
     color: '#fff',
+  },
+  errorText: {
+    color: '#c0392b',
+    fontSize: 13,
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBox: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '85%',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  modalLabel: {
+    fontSize: 12,
+    color: '#888',
+    alignSelf: 'flex-start',
+    marginTop: 10,
+  },
+  modalValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0E1525',
+    alignSelf: 'flex-start',
+    letterSpacing: 1,
+  },
+  modalBtn: {
+    marginTop: 20,
+    backgroundColor: '#F5A300',
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 25,
+    width: '100%',
+    alignItems: 'center',
   },
 });

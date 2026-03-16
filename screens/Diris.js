@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet, Alert, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
 import BottomNav from '../components/navbar';
 import { useContext, useEffect, useState } from 'react';
 import { UserContext } from '../context/UserContext';
@@ -17,6 +17,7 @@ export default function Diris({ navigation }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [qrVisible, setQrVisible] = useState(false);
   const [codigoVisible, setCodigoVisible] = useState(false);
+  const [errorCarga, setErrorCarga] = useState('');
 
 
   useEffect(() => {
@@ -31,7 +32,7 @@ export default function Diris({ navigation }) {
       setDirigentes(data);
     } catch (error) {
       console.error(error);
-      Alert.alert('Error', 'No se pudieron cargar los dirigentes');
+      setErrorCarga('No se pudieron cargar los dirigentes');
     } finally {
       setLoading(false);
     }
@@ -63,6 +64,9 @@ export default function Diris({ navigation }) {
       <WaveBackground />
       {/* LISTA DIRIGENTES */}
       <SectionTitle title='Dirigentes' />
+      {errorCarga ? (
+        <Text style={styles.errorText}>{errorCarga}</Text>
+      ) : null}
       <View style={styles.listContainer}>
         
 
@@ -177,6 +181,13 @@ nombre: {
 },
 rol: {
   color: '#555',
+},
+errorText: {
+  color: '#c0392b',
+  fontSize: 13,
+  marginHorizontal: 20,
+  marginBottom: 8,
+  textAlign: 'center',
 },
 
 });

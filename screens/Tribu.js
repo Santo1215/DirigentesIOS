@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Alert, Modal, TextInput} from 'react-native';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Modal, TextInput } from 'react-native';
 import ExoditoItem from '../components/ExoditoItem';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BottomNav from '../components/navbar';
@@ -14,18 +14,28 @@ export default function Tribu({ navigation }) {
   const { user } = useContext(UserContext);
   const [modalNuevoVisible, setModalNuevoVisible] = useState(false);
   const [nuevoNombre, setNuevoNombre] = useState('');
-  const [nuevoApellido, setNuevoApellido] = useState(''); 
+  const [nuevoApellido, setNuevoApellido] = useState('');
   const [exoditos, setExoditos] = useState([]);
   const idTribu = user.dirigente.id_tribu;
   const CARGOS = ['Exodito', 'Líder', 'Subjefe', 'Jefe'];
   const [modalEditarVisible, setModalEditarVisible] = useState(false);
   const [exoditoSeleccionado, setExoditoSeleccionado] = useState(null);
-  const [modo, setModo] = useState('vista'); 
+  const [modo, setModo] = useState('vista');
   const [presentes, setPresentes] = useState([]);
   const [token, setToken] = useState(null);
-    useEffect(() => {
-      AsyncStorage.getItem('token').then(setToken);
-    }, []);
+  const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
+  const [exoditoAEliminar, setExoditoAEliminar] = useState(null);
+  const [toastMsg, setToastMsg] = useState('');
+  const [toastType, setToastType] = useState('error'); // 'error' | 'success'
+
+  const showToast = (msg, type = 'error') => {
+    setToastMsg(msg);
+    setToastType(type);
+    setTimeout(() => setToastMsg(''), 3000);
+  };
+  useEffect(() => {
+    AsyncStorage.getItem('token').then(setToken);
+  }, []);
 
   const cambiarCargo = async (exodito, direccion) => {
     const indexActual = CARGOS.indexOf(exodito.cargo);
@@ -35,7 +45,7 @@ export default function Tribu({ navigation }) {
       direccion === 'subir' ? indexActual + 1 : indexActual - 1;
 
     if (nuevoIndex < 0 || nuevoIndex >= CARGOS.length) {
-      Alert.alert('Atención', 'No se puede cambiar más el cargo');
+      showToast('No se puede cambiar más el cargo', 'error');
       return;
     }
 
@@ -48,22 +58,21 @@ export default function Tribu({ navigation }) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           nombre: exodito.nombre,
           apellido: exodito.apellido,
           id_tribu: idTribu,
-          cargo: nuevoCargo 
+          cargo: nuevoCargo
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        Alert.alert('Error', data.message || 'No se pudo actualizar el cargo');
+        showToast(data.message || 'No se pudo actualizar el cargo');
         return;
       }
 
-      // Actualizar estado local
       setExoditos(prev =>
         prev.map(e =>
           e.id_exodito === exodito.id_exodito
@@ -72,48 +81,44 @@ export default function Tribu({ navigation }) {
         )
       );
 
-      Alert.alert('Éxito', `${exodito.nombre} ahora es ${nuevoCargo}`);
+      showToast(`${exodito.nombre} ahora es ${nuevoCargo}`, 'success');
     } catch (err) {
       console.error(err);
-      Alert.alert('Error', 'Error de conexión');
+      showToast('Error de conexión');
     }
   };
   const eliminarExodito = (exodito) => {
-    Alert.alert(
-      '¿Eliminar exodito?',
-      `¿Estás seguro de eliminar a ${exodito.nombre} ${exodito.apellido}? Esta acción no se puede deshacer.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const res = await fetch(`${API_URL}/exodito/${exodito.id_exodito}`, {
-                method: 'DELETE',
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
-              });
-              const data = await res.json();
+    setExoditoAEliminar(exodito);
+    setConfirmDeleteVisible(true);
+  };
 
-              if (!res.ok) {
-                Alert.alert('Error', data.message || 'No se pudo eliminar el exodito');
-                return;
-              }
-              setExoditos(prev =>
-                prev.filter(e => e.id_exodito !== exodito.id_exodito)
-              );
-              Alert.alert('Éxito', `${exodito.nombre} ha sido eliminado`);
-            } catch (err) {
-              console.error(err);
-              Alert.alert('Error', 'Error de conexión');
-            }
-          },
+  const confirmarEliminacion = async () => {
+    if (!exoditoAEliminar) return;
+    setConfirmDeleteVisible(false);
+    try {
+      const res = await fetch(`${API_URL}/exodito/${exoditoAEliminar.id_exodito}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-      ]
-    );
-  }
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showToast(data.message || 'No se pudo eliminar el exodito');
+        return;
+      }
+      setExoditos(prev =>
+        prev.filter(e => e.id_exodito !== exoditoAEliminar.id_exodito)
+      );
+      showToast(`${exoditoAEliminar.nombre} ha sido eliminado`, 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Error de conexión');
+    } finally {
+      setExoditoAEliminar(null);
+    }
+  };
 
   const togglePresente = (id) => {
     setPresentes((prev) =>
@@ -123,9 +128,9 @@ export default function Tribu({ navigation }) {
 
   const enviarAsistencia = async () => {
     const payload = exoditos.map(e => ({
-    id_exodito: e.id_exodito,
-    estado: presentes.includes(e.id_exodito) ? 'Presente' : 'Ausente',
-  }));
+      id_exodito: e.id_exodito,
+      estado: presentes.includes(e.id_exodito) ? 'Presente' : 'Ausente',
+    }));
 
 
     try {
@@ -143,29 +148,26 @@ export default function Tribu({ navigation }) {
       const data = await res.json();
 
       if (!res.ok) {
-        Alert.alert('Error', data.error || 'No se pudo registrar la asistencia');
+        showToast(data.error || 'No se pudo registrar la asistencia');
         return;
       }
 
-      Alert.alert(
-        'Éxito',
-        `Asistencia registrada (${data.total} exoditos)`
-      );
+      showToast(`Asistencia registrada (${data.total} exoditos)`, 'success');
 
       setPresentes([]);
       setModo('vista');
 
     } catch (err) {
       console.error(err);
-      Alert.alert('Error', 'Error de conexión con el servidor');
+      showToast('Error de conexión con el servidor');
     }
   };
 
 
   const agregarNuevoExodito = () => {
-  setNuevoNombre('');
-  setModalNuevoVisible(true);
-};
+    setNuevoNombre('');
+    setModalNuevoVisible(true);
+  };
 
   const renderModoButton = (tipo, icono, label) => {
     const activo = modo === tipo;
@@ -334,7 +336,7 @@ export default function Tribu({ navigation }) {
                 style={styles.cancelBtnModal}
                 onPress={() => setModalEditarVisible(false)}
               >
-                <Text style={{ fontWeight: '600', color:'black'}}>Cancelar</Text>
+                <Text style={{ fontWeight: '600', color: 'black' }}>Cancelar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -357,98 +359,140 @@ export default function Tribu({ navigation }) {
         </TouchableOpacity>
       )}
 
+      {/* Toast de feedback */}
+      {toastMsg ? (
+        <View style={[styles.toast, toastType === 'success' ? styles.toastSuccess : styles.toastError]}>
+          <Text style={styles.toastText}>{toastMsg}</Text>
+        </View>
+      ) : null}
+
       <BottomNav navigation={navigation} />
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={modalNuevoVisible}
-          onRequestClose={() => setModalNuevoVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Nuevo Exodito</Text>
-              
-              <TextInput
-                style={styles.input}
-                placeholder="Nombre"
-                value={nuevoNombre}
-                onChangeText={setNuevoNombre}
-                autoFocus
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Apellido"
-                value={nuevoApellido}
-                onChangeText={setNuevoApellido}
-                autoFocus
-              />
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalNuevoVisible}
+        onRequestClose={() => setModalNuevoVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Nuevo Exodito</Text>
 
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.cancelBtn]}
-                  activeOpacity={0.8}
-                  onPress={() => setModalNuevoVisible(false)}
-                >
-                  <Text style={[styles.modalBtnText, { color: '#333' }]}>
-                    Cancelar
-                  </Text>
-                </TouchableOpacity>
+            <TextInput
+              style={styles.input}
+              placeholder="Nombre"
+              value={nuevoNombre}
+              onChangeText={setNuevoNombre}
+              autoFocus
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Apellido"
+              value={nuevoApellido}
+              onChangeText={setNuevoApellido}
+              autoFocus
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.cancelBtn]}
+                activeOpacity={0.8}
+                onPress={() => setModalNuevoVisible(false)}
+              >
+                <Text style={[styles.modalBtnText, { color: '#333' }]}>
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
 
 
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.confirmBtn]}
-                  onPress={async () => {
-                    if (!nuevoNombre.trim() || !nuevoApellido.trim()) {
-                      Alert.alert('Error', 'Nombre y apellido son obligatorios');
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.confirmBtn]}
+                onPress={async () => {
+                  if (!nuevoNombre.trim() || !nuevoApellido.trim()) {
+                    showToast('Nombre y apellido son obligatorios');
+                    return;
+                  }
+
+                  try {
+                    console.log({
+                      nombre: nuevoNombre,
+                      apellido: nuevoApellido,
+                      id_tribu: idTribu,
+                    });
+
+                    const res = await fetch(`${API_URL}/exoditos`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`,
+                      },
+                      body: JSON.stringify({
+                        nombre: nuevoNombre.trim(),
+                        apellido: nuevoApellido.trim(),
+                        cargo: 'Exodito',
+                        id_tribu: idTribu,
+                      }),
+                    });
+
+                    const data = await res.json();
+
+                    if (!res.ok) {
+                      showToast(data.error || 'No se pudo crear el exodito');
                       return;
                     }
 
-                    try {
-                      console.log({
-                        nombre: nuevoNombre,
-                        apellido: nuevoApellido,
-                        id_tribu: idTribu,
-                      });
 
-                      const res = await fetch(`${API_URL}/exoditos`, {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          Authorization: `Bearer ${token}`,
-                        },
-                        body: JSON.stringify({
-                          nombre: nuevoNombre.trim(),
-                          apellido: nuevoApellido.trim(),
-                          cargo: 'Exodito',
-                          id_tribu: idTribu,
-                        }),
-                      });
+                    setExoditos([...exoditos, data.exodito]);
 
-                      const data = await res.json();
-
-                      if (!res.ok) {
-                        Alert.alert('Error', data.error || 'No se pudo crear el exodito');
-                        return;
-                      }
-
-                    
-                      setExoditos([...exoditos, data.exodito]);
-
-                      setNuevoNombre('');
-                      setNuevoApellido('');
-                      setModalNuevoVisible(false);
-                    } catch (err) {
-                      console.error(err);
-                      Alert.alert('Error', 'Error de conexión con el servidor');
-                    }
-                  }}
-                >
-                  <Text style={styles.modalBtnText}>Agregar</Text>
-                </TouchableOpacity>
-              </View>
+                    setNuevoNombre('');
+                    setNuevoApellido('');
+                    setModalNuevoVisible(false);
+                  } catch (err) {
+                    console.error(err);
+                    showToast('Error de conexión con el servidor');
+                  }
+                }}
+              >
+                <Text style={styles.modalBtnText}>Agregar</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </Modal>
+        </View>
+      </Modal>
+      {/* MODAL CONFIRMAR ELIMINACIÓN */}
+      <Modal
+        transparent
+        animationType="fade"
+        visible={confirmDeleteVisible}
+        onRequestClose={() => setConfirmDeleteVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons name="warning" size={36} color="#e74c3c" style={{ marginBottom: 12 }} />
+            <Text style={styles.modalTitle}>¿Eliminar exodito?</Text>
+            <Text style={{ textAlign: 'center', color: '#555', marginBottom: 24 }}>
+              ¿Estás seguro de eliminar a{' '}
+              <Text style={{ fontWeight: 'bold' }}>
+                {exoditoAEliminar?.nombre} {exoditoAEliminar?.apellido}
+              </Text>?{'\n'}Esta acción no se puede deshacer.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.cancelBtn]}
+                onPress={() => { setConfirmDeleteVisible(false); setExoditoAEliminar(null); }}
+              >
+                <Text style={[styles.modalBtnText, { color: '#333' }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: '#e74c3c' }]}
+                onPress={confirmarEliminacion}
+              >
+                <Text style={styles.modalBtnText}>Eliminar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -549,74 +593,98 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   modalOverlay: {
-  flex: 1,
-  backgroundColor: 'rgba(0,0,0,0.5)',
-  justifyContent: 'center',
-  alignItems: 'center',
-},
-modalContent: {
-  backgroundColor: 'white',
-  padding: 24,
-  borderRadius: 16,
-  width: '85%',
-  alignItems: 'center',
-},
-modalTitle: {
-  fontSize: 20,
-  fontWeight: 'bold',
-  marginBottom: 20,
-},
-input: {
-  borderWidth: 1,
-  borderColor: '#ddd',
-  borderRadius: 8,
-  padding: 12,
-  width: '100%',
-  marginBottom: 20,
-  fontSize: 16,
-},
-modalButtons: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  width: '100%',
-},
-modalBtn: {
-  flex: 1,
-  paddingVertical: 14,
-  borderRadius: 10,
-  marginHorizontal: 6,
-  alignItems: 'center',
-  justifyContent: 'center',
-},
-cancelBtn: {
-  backgroundColor: '#E0E0E0',
-},
-confirmBtn: {
-  backgroundColor: '#FF8C42',
-},
-modalBtnText: {
-  color: '#fff',
-  fontWeight: '700',
-  fontSize: 16,
-},
-modalActionBtn: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  gap: 10,
-  paddingVertical: 12,
-},
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: 24,
+    borderRadius: 16,
+    width: '85%',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    width: '100%',
+    marginBottom: 20,
+    fontSize: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    marginHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtn: {
+    backgroundColor: '#E0E0E0',
+  },
+  confirmBtn: {
+    backgroundColor: '#FF8C42',
+  },
+  modalBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  modalActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 12,
+  },
 
-modalActionText: {
-  fontSize: 16,
-  fontWeight: '500',
-},
+  modalActionText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
 
-cancelBtnModal: {
-  marginTop: 20,
-  paddingVertical: 12,
-  alignItems: 'center',
-  color:'black',
-  borderRadius: 10,
-},
+  cancelBtnModal: {
+    marginTop: 20,
+    paddingVertical: 12,
+    alignItems: 'center',
+    color: 'black',
+    borderRadius: 10,
+  },
+
+  toast: {
+    position: 'absolute',
+    bottom: 100,
+    left: 20,
+    right: 20,
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    zIndex: 999,
+    elevation: 10,
+  },
+  toastSuccess: {
+    backgroundColor: '#2ecc71',
+  },
+  toastError: {
+    backgroundColor: '#e74c3c',
+  },
+  toastText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+    textAlign: 'center',
+  },
 
 });

@@ -1,14 +1,35 @@
-import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert  } from 'react-native';
+import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { useState } from 'react';
 import { API_URL } from '../api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// Devuelve la hora local en formato HH:MM:SS (Colombia UTC-5)
+const getHoraLocal = () => {
+  const ahora = new Date();
+  const offsetMs = -5 * 60 * 60 * 1000; // UTC-5 Colombia
+  const local = new Date(ahora.getTime() + offsetMs);
+  return local.toISOString().split('T')[1].split('.')[0]; // "HH:MM:SS"
+};
+
+// Devuelve la fecha local en formato YYYY-MM-DD (Colombia UTC-5)
+const getFechaLocal = () => {
+  const ahora = new Date();
+  const offsetMs = -5 * 60 * 60 * 1000;
+  const local = new Date(ahora.getTime() + offsetMs);
+  return local.toISOString().split('T')[0]; // "YYYY-MM-DD"
+};
+
 export default function CodigoManualModal({ visible, onClose, user }) {
   const [codigo, setCodigo] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   const registrarAsistencia = async () => {
+    setErrorMsg('');
+    setSuccessMsg('');
+
     if (!codigo.trim()) {
-      Alert.alert('Error', 'Ingrese el código');
+      setErrorMsg('Ingrese el código');
       return;
     }
 
@@ -20,24 +41,30 @@ export default function CodigoManualModal({ visible, onClose, user }) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ codigo: codigo }),
+        body: JSON.stringify({
+          codigo: codigo,
+          hora_llegada: getHoraLocal(),
+          fecha: getFechaLocal(),
+        }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        Alert.alert('Error', data.error);
+        setErrorMsg(data.error || 'Error al registrar');
         return;
       }
 
-      Alert.alert('OK', 'Asistencia registrada');
+      setSuccessMsg('Asistencia registrada');
       setCodigo('');
-      onClose();
+      setTimeout(() => {
+        setSuccessMsg('');
+        onClose();
+      }, 1200);
     } catch {
-      Alert.alert('Error', 'Error de conexión');
+      setErrorMsg('Error de conexión');
     }
   };
-
 
   return (
     <Modal visible={visible} transparent animationType="slide">
@@ -49,16 +76,19 @@ export default function CodigoManualModal({ visible, onClose, user }) {
             placeholder="Código"
             style={styles.input}
             value={codigo}
-            onChangeText={setCodigo}
+            onChangeText={v => { setCodigo(v); setErrorMsg(''); }}
             keyboardType="numeric"
           />
+
+          {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
+          {successMsg ? <Text style={styles.successText}>{successMsg}</Text> : null}
 
           <TouchableOpacity style={styles.btn} onPress={registrarAsistencia}>
             <Text style={{ fontWeight: 'bold' }}>Registrar</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={onClose}>
-            <Text style={{ marginTop: 10 }}>Cancelar</Text>
+          <TouchableOpacity onPress={() => { setCodigo(''); setErrorMsg(''); onClose(); }}>
+            <Text style={{ marginTop: 10, textAlign: 'center' }}>Cancelar</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -89,12 +119,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 10,
     padding: 12,
-    marginBottom: 15,
+    marginBottom: 10,
   },
   btn: {
     backgroundColor: '#FFD685',
     padding: 12,
     borderRadius: 20,
     alignItems: 'center',
+    marginTop: 5,
+  },
+  errorText: {
+    color: '#c0392b',
+    fontSize: 13,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  successText: {
+    color: '#27ae60',
+    fontSize: 13,
+    marginBottom: 8,
+    textAlign: 'center',
+    fontWeight: '600',
   },
 });
