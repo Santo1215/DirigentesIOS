@@ -6,7 +6,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Alert,
   ScrollView,
 } from 'react-native';
 import { API_URL } from '../api';
@@ -23,6 +22,8 @@ export default function ModalAsignarMulta({
   const [monto, setMonto] = useState('');
   const [motivo, setMotivo] = useState('');
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   useEffect(() => {
     if (!visible) return;
@@ -48,8 +49,10 @@ export default function ModalAsignarMulta({
   }, [visible]);
 
   const asignarMulta = async () => {
+    setErrorMsg('');
+    setSuccessMsg('');
     if (!dirigenteId || !monto || !motivo) {
-      Alert.alert('Error', 'Todos los campos son obligatorios');
+      setErrorMsg('Todos los campos son obligatorios');
       return;
     }
 
@@ -67,13 +70,19 @@ export default function ModalAsignarMulta({
         }),
       });
 
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        setErrorMsg('No se pudo asignar la multa');
+        return;
+      }
 
-      Alert.alert('Éxito', 'Multa asignada correctamente');
-      onSuccess();
-      onClose();
+      setSuccessMsg('Multa asignada correctamente');
+      setTimeout(() => {
+        setSuccessMsg('');
+        onSuccess();
+        onClose();
+      }, 1200);
     } catch {
-      Alert.alert('Error', 'No se pudo asignar la multa');
+      setErrorMsg('No se pudo asignar la multa');
     }
   };
 
@@ -118,6 +127,9 @@ export default function ModalAsignarMulta({
           />
 
           
+
+          {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
+          {successMsg ? <Text style={styles.successText}>{successMsg}</Text> : null}
 
           <View style={styles.actions}>
             <TouchableOpacity onPress={onClose}>
@@ -179,5 +191,18 @@ const styles = StyleSheet.create({
     confirm: {
     color: 'green',
     fontWeight: 'bold',
+    },
+    errorText: {
+    color: '#e74c3c',
+    fontSize: 13,
+    marginTop: 10,
+    textAlign: 'center',
+    },
+    successText: {
+    color: '#27ae60',
+    fontSize: 13,
+    marginTop: 10,
+    textAlign: 'center',
+    fontWeight: '600',
     },
 });

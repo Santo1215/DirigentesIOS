@@ -33,7 +33,7 @@ export default function AsistenciaTribusScreen({ navigation }) {
   const [mostrarPicker, setMostrarPicker] = useState(false);
   const [token, setToken] = useState(null);
 
-  useEffect(() => {
+  useEffect(() => { 
     AsyncStorage.getItem('token').then(setToken);
   }, []);
 

@@ -6,7 +6,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   FlatList,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '../api';
@@ -14,6 +13,8 @@ import { API_URL } from '../api';
 export default function ModalDetalleMultas({ visible, dirigente, token, onClose }) {
   const [multas, setMultas] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [confirmId, setConfirmId] = useState(null); // id de multa a eliminar
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     if (!dirigente) return;
@@ -22,9 +23,7 @@ export default function ModalDetalleMultas({ visible, dirigente, token, onClose 
       try {
         const res = await fetch(
           `${API_URL}/multas/dirigente/${dirigente.id_dirigente}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
+          { headers: { Authorization: `Bearer ${token}` } }
         );
         const data = await res.json();
         if (res.ok) setMultas(data);
@@ -38,37 +37,27 @@ export default function ModalDetalleMultas({ visible, dirigente, token, onClose 
     cargarMultas();
   }, [dirigente]);
 
-  const eliminarMulta = async (id_multa) => {
-    Alert.alert(
-      'Eliminar multa',
-      '¿Estás seguro?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const res = await fetch(`${API_URL}/multa/${id_multa}`, {
-                method: 'DELETE',
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
-              });
+  const confirmarEliminacion = async () => {
+    if (!confirmId) return;
+    setErrorMsg('');
+    try {
+      const res = await fetch(`${API_URL}/multa/${confirmId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-              if (!res.ok) {
-                Alert.alert('Error', 'No se pudo eliminar');
-                return;
-              }
+      if (!res.ok) {
+        setErrorMsg('No se pudo eliminar');
+        setConfirmId(null);
+        return;
+      }
 
-              setMultas(prev => prev.filter(m => m.id_multa !== id_multa));
-            } catch (err) {
-              Alert.alert('Error', 'Error de conexión');
-            }
-          },
-        },
-      ]
-    );
+      setMultas(prev => prev.filter(m => m.id_multa !== confirmId));
+      setConfirmId(null);
+    } catch (err) {
+      setErrorMsg('Error de conexión');
+      setConfirmId(null);
+    }
   };
 
   return (
@@ -95,10 +84,7 @@ export default function ModalDetalleMultas({ visible, dirigente, token, onClose 
                       ${Number(item.monto).toLocaleString()}
                     </Text>
                   </View>
-
-                  <TouchableOpacity
-                    onPress={() => eliminarMulta(item.id_multa)}
-                  >
+                  <TouchableOpacity onPress={() => setConfirmId(item.id_multa)}>
                     <Ionicons name="trash" size={22} color="#e74c3c" />
                   </TouchableOpacity>
                 </View>
@@ -106,14 +92,42 @@ export default function ModalDetalleMultas({ visible, dirigente, token, onClose 
             />
           )}
 
+          {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
+
           <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
             <Text style={{ fontWeight: 'bold' }}>Cerrar</Text>
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* MODAL CONFIRMAR ELIMINACIÓN */}
+      <Modal transparent animationType="fade" visible={!!confirmId} onRequestClose={() => setConfirmId(null)}>
+        <View style={styles.overlay}>
+          <View style={styles.confirmBox}>
+            <Ionicons name="warning" size={32} color="#e74c3c" style={{ marginBottom: 10 }} />
+            <Text style={styles.confirmTitle}>¿Eliminar multa?</Text>
+            <Text style={styles.confirmText}>Esta acción no se puede deshacer.</Text>
+            <View style={styles.confirmButtons}>
+              <TouchableOpacity
+                style={[styles.confirmBtn, { backgroundColor: '#eee' }]}
+                onPress={() => setConfirmId(null)}
+              >
+                <Text style={{ color: '#333', fontWeight: '600' }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmBtn, { backgroundColor: '#e74c3c' }]}
+                onPress={confirmarEliminacion}
+              >
+                <Text style={{ color: '#fff', fontWeight: '600' }}>Eliminar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 }
+
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
@@ -155,5 +169,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#eee',
     borderRadius: 12,
+  },
+  errorText: {
+    color: '#e74c3c',
+    fontSize: 13,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  confirmBox: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '80%',
+    alignItems: 'center',
+  },
+  confirmTitle: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    marginBottom: 6,
+  },
+  confirmText: {
+    color: '#666',
+    fontSize: 13,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  confirmButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  confirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
   },
 });
