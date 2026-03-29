@@ -83,15 +83,23 @@ export default function DirigenteModal({ visible, dirigente, onClose, onSaved })
         },
       });
 
-      const data = await res.json();
+      // Algunos servidores devuelven cuerpo vacío en DELETE, esto evita crash
+      let data = {};
+      const text = await res.text();
+      if (text) {
+        try { data = JSON.parse(text); } catch (_) {}
+      }
 
       if (!res.ok) {
         Alert.alert('Error', data.message || 'Error al eliminar');
         return;
       }
 
-      onSaved();
-      onClose();
+      Alert.alert(
+        '✅ Dirigente eliminado',
+        `${dirigente.nombre} ${dirigente.apellido} fue eliminado correctamente.`,
+        [{ text: 'Aceptar', onPress: () => { onSaved(); onClose(); } }]
+      );
     } catch (error) {
       Alert.alert('Error', 'Error de conexión');
     }
