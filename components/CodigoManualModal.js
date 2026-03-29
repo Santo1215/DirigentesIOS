@@ -3,20 +3,16 @@ import { useState } from 'react';
 import { API_URL } from '../api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Devuelve la hora local en formato HH:MM:SS (Colombia UTC-5)
 const getHoraLocal = () => {
   const ahora = new Date();
-  const offsetMs = -5 * 60 * 60 * 1000; // UTC-5 Colombia
-  const local = new Date(ahora.getTime() + offsetMs);
-  return local.toISOString().split('T')[1].split('.')[0]; // "HH:MM:SS"
+  const local = new Date(ahora.getTime() + (-5 * 60 * 60 * 1000));
+  return local.toISOString().split('T')[1].split('.')[0];
 };
 
-// Devuelve la fecha local en formato YYYY-MM-DD (Colombia UTC-5)
 const getFechaLocal = () => {
   const ahora = new Date();
-  const offsetMs = -5 * 60 * 60 * 1000;
-  const local = new Date(ahora.getTime() + offsetMs);
-  return local.toISOString().split('T')[0]; // "YYYY-MM-DD"
+  const local = new Date(ahora.getTime() + (-5 * 60 * 60 * 1000));
+  return local.toISOString().split('T')[0];
 };
 
 export default function CodigoManualModal({ visible, onClose, user }) {

@@ -2,6 +2,7 @@ import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } fro
 import { useState, useEffect } from 'react';
 import { API_URL } from '../api';
 import { Picker } from '@react-native-picker/picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function DirigenteModal({ visible, dirigente, onClose, onSaved }) {
   const [rol, setRol] = useState('');
@@ -9,24 +10,24 @@ export default function DirigenteModal({ visible, dirigente, onClose, onSaved })
   const [idTribu, setIdTribu] = useState(0);
   const [tribus, setTribus] = useState([]);
   const [tribusOrdenadas, setTribusOrdenadas] = useState([]);
-    useEffect(() => {
-    
+  useEffect(() => {
+
     const tribusOrdenadas = [...tribus].sort((a, b) => a.id_tribu - b.id_tribu);
     setTribusOrdenadas(tribusOrdenadas);
-}, [tribus]);
+  }, [tribus]);
 
-    useEffect(() => {
+  useEffect(() => {
     if (["Coordinación"].includes(rol)) {
-        setComite('Económico');
+      setComite('Económico');
     }
-    }, [rol]);
+  }, [rol]);
 
   useEffect(() => {
     fetch(`${API_URL}/tribus`)
-        .then(res => res.json())
-        .then(setTribus)
-        .catch(() => alert('Error cargando tribus'));
-    }, []);
+      .then(res => res.json())
+      .then(setTribus)
+      .catch(() => alert('Error cargando tribus'));
+  }, []);
 
   useEffect(() => {
     if (dirigente) {
@@ -41,7 +42,7 @@ export default function DirigenteModal({ visible, dirigente, onClose, onSaved })
       const res = await fetch(`${API_URL}/dirigente/${dirigente.id_dirigente}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rol, comite, id_tribu: idTribu}),
+        body: JSON.stringify({ rol, comite, id_tribu: idTribu }),
       });
 
       const data = await res.json();
@@ -74,8 +75,12 @@ export default function DirigenteModal({ visible, dirigente, onClose, onSaved })
   };
   const confirmarEliminacion = async () => {
     try {
+      const token = await AsyncStorage.getItem('token');
       const res = await fetch(`${API_URL}/dirigente/${dirigente.id_dirigente}`, {
         method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       const data = await res.json();
@@ -115,13 +120,13 @@ export default function DirigenteModal({ visible, dirigente, onClose, onSaved })
             <Picker.Item label="Levitando" value="Levitando" />
           </Picker>
 
-            {rol ==="Coordinación" && (
+          {rol === "Coordinación" && (
             <Text style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>
-                El comité es automático para este rol
+              El comité es automático para este rol
             </Text>
-            )}
-          <Picker selectedValue={comite} onValueChange={setComite} 
-          enabled={!["Coordinación"].includes(rol)}>
+          )}
+          <Picker selectedValue={comite} onValueChange={setComite}
+            enabled={!["Coordinación"].includes(rol)}>
 
             <Picker.Item label="Seleccionar comité" value="" />
             <Picker.Item label="Asistencia" value="Asistencia" />
@@ -132,16 +137,16 @@ export default function DirigenteModal({ visible, dirigente, onClose, onSaved })
 
           </Picker>
 
-        <Picker selectedValue={idTribu} onValueChange={value => setIdTribu(value)}>
+          <Picker selectedValue={idTribu} onValueChange={value => setIdTribu(value)}>
             <Picker.Item label="Seleccionar tribu" value={0} />
             {tribusOrdenadas.map(t => (
-                <Picker.Item
+              <Picker.Item
                 key={t.id_tribu}
                 label={t.nombre}
                 value={Number(t.id_tribu)}
-                />
+              />
             ))}
-        </Picker>
+          </Picker>
 
 
           <View style={styles.buttons}>
@@ -154,9 +159,9 @@ export default function DirigenteModal({ visible, dirigente, onClose, onSaved })
             </TouchableOpacity>
 
             {/* ELIMINAR */}
-          <TouchableOpacity onPress={eliminarDirigente} style={styles.delete}>
-            <Text style={styles.deleteText}>Eliminar dirigente</Text>
-          </TouchableOpacity>
+            <TouchableOpacity onPress={eliminarDirigente} style={styles.delete}>
+              <Text style={styles.deleteText}>Eliminar dirigente</Text>
+            </TouchableOpacity>
           </View>
 
         </View>
@@ -197,14 +202,14 @@ const styles = StyleSheet.create({
     marginTop: 15,
   },
   cancel: {
-    marginTop:20,
+    marginTop: 20,
     padding: 10,
   },
   save: {
     padding: 10,
     backgroundColor: '#F5A300',
     borderRadius: 10,
-    marginTop:20,
+    marginTop: 20,
   },
   delete: {
     marginTop: 20,
@@ -219,10 +224,10 @@ const styles = StyleSheet.create({
   },
 
   pickerContainer: {
-  borderWidth: 1,
-  borderColor: '#ccc',
-  borderRadius: 10,
-  marginBottom: 10,
-}
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 10,
+    marginBottom: 10,
+  }
 
 });

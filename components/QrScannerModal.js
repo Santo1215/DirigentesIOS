@@ -87,13 +87,29 @@ export default function QrScannerModal({ visible, onClose, user }) {
         return;
       }
 
+      const getHoraLocal = () => {
+        const ahora = new Date();
+        const local = new Date(ahora.getTime() + (-5 * 60 * 60 * 1000));
+        return local.toISOString().split('T')[1].split('.')[0];
+      };
+
+      const getFechaLocal = () => {
+        const ahora = new Date();
+        const local = new Date(ahora.getTime() + (-5 * 60 * 60 * 1000));
+        return local.toISOString().split('T')[0];
+      };
+
       const res = await fetch(`${API_URL}/asistencia/qr`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ codigo_qr: data }),
+        body: JSON.stringify({
+          codigo_qr: data,
+          hora_llegada: getHoraLocal(),
+          fecha: getFechaLocal(),
+        }),
       });
 
       const result = await res.json();
