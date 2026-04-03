@@ -1,4 +1,4 @@
-import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
 import { useState, useEffect } from 'react';
 import { API_URL } from '../api';
 import { Picker } from '@react-native-picker/picker';
@@ -60,18 +60,25 @@ export default function DirigenteModal({ visible, dirigente, onClose, onSaved })
     }
   };
   const eliminarDirigente = () => {
-    Alert.alert(
-      'Eliminar dirigente',
-      '¿Estás seguro? Esta acción no se puede deshacer.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: confirmarEliminacion,
-        },
-      ]
-    );
+    if (Platform.OS === 'web') {
+      const confirmar = window.confirm(
+        '¿Estás seguro? Esta acción no se puede deshacer.'
+      );
+      if (confirmar) confirmarEliminacion();
+    } else {
+      Alert.alert(
+        'Eliminar dirigente',
+        '¿Estás seguro? Esta acción no se puede deshacer.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Eliminar',
+            style: 'destructive',
+            onPress: confirmarEliminacion,
+          },
+        ]
+      );
+    }
   };
   const confirmarEliminacion = async () => {
     try {
@@ -87,21 +94,35 @@ export default function DirigenteModal({ visible, dirigente, onClose, onSaved })
       let data = {};
       const text = await res.text();
       if (text) {
-        try { data = JSON.parse(text); } catch (_) {}
+        try { data = JSON.parse(text); } catch (_) { }
       }
 
       if (!res.ok) {
-        Alert.alert('Error', data.message || 'Error al eliminar');
+        if (Platform.OS === 'web') {
+          window.alert(data.message || 'Error al eliminar');
+        } else {
+          Alert.alert('Error', data.message || 'Error al eliminar');
+        }
         return;
       }
 
-      Alert.alert(
-        '✅ Dirigente eliminado',
-        `${dirigente.nombre} ${dirigente.apellido} fue eliminado correctamente.`,
-        [{ text: 'Aceptar', onPress: () => { onSaved(); onClose(); } }]
-      );
+      if (Platform.OS === 'web') {
+        window.alert(`${dirigente.nombre} ${dirigente.apellido} fue eliminado correctamente.`);
+        onSaved();
+        onClose();
+      } else {
+        Alert.alert(
+          'Dirigente eliminado',
+          `${dirigente.nombre} ${dirigente.apellido} fue eliminado correctamente.`,
+          [{ text: 'Aceptar', onPress: () => { onSaved(); onClose(); } }]
+        );
+      }
     } catch (error) {
-      Alert.alert('Error', 'Error de conexión');
+      if (Platform.OS === 'web') {
+        window.alert('Error de conexión');
+      } else {
+        Alert.alert('Error', 'Error de conexión');
+      }
     }
   };
 
