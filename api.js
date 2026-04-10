@@ -1,4 +1,4 @@
-export const API_URL = 'https://mydiri.up.railway.app';
+export const API_URL = 'https://mydiri.up.railway.app' || 'https://dirigentes.onrender.com';
 
 const request = async (endpoint, options = {}) => {
   try {
