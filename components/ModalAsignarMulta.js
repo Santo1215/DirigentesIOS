@@ -21,6 +21,7 @@ export default function ModalAsignarMulta({
   const [dirigenteId, setDirigenteId] = useState(null);
   const [monto, setMonto] = useState('');
   const [motivo, setMotivo] = useState('');
+  const [detalle, setDetalle] = useState('');
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -67,6 +68,7 @@ export default function ModalAsignarMulta({
           id_dirigente: dirigenteId,
           monto: Number(monto),
           motivo,
+          Detalle: detalle || null,
         }),
       });
 
@@ -124,6 +126,14 @@ export default function ModalAsignarMulta({
             keyboardType="numeric"
             value={monto}
             onChangeText={setMonto}
+          />
+
+          <TextInput
+            style={[styles.input, { minHeight: 70, textAlignVertical: 'top' }]}
+            placeholder="Detalle (Información revelante que ayude a entender el motivo, como lo puede ser la fecha entre otros)"
+            value={detalle}
+            onChangeText={setDetalle}
+            multiline
           />
 
           

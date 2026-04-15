@@ -9,12 +9,16 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '../api';
+import { useContext } from 'react';
+import { UserContext } from '../context/UserContext';
 
 export default function ModalDetalleMultas({ visible, dirigente, token, onClose }) {
   const [multas, setMultas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [confirmId, setConfirmId] = useState(null); // id de multa a eliminar
   const [errorMsg, setErrorMsg] = useState('');
+  const { user } = useContext(UserContext);
+  const { rol } = user.dirigente;
 
   useEffect(() => {
     if (!dirigente) return;
@@ -78,15 +82,20 @@ export default function ModalDetalleMultas({ visible, dirigente, token, onClose 
               keyExtractor={(item) => item.id_multa.toString()}
               renderItem={({ item }) => (
                 <View style={styles.multaRow}>
-                  <View>
+                  <View style={{ flex: 1 }}>
                     <Text style={styles.motivo}>{item.motivo}</Text>
                     <Text style={styles.fecha}>
                       ${Number(item.monto).toLocaleString()}
                     </Text>
+                    {item.detalle ? (
+                      <Text style={styles.detalle}>{item.detalle}</Text>
+                    ) : null}
                   </View>
-                  <TouchableOpacity onPress={() => setConfirmId(item.id_multa)}>
-                    <Ionicons name="trash" size={22} color="#e74c3c" />
-                  </TouchableOpacity>
+                  {rol === 'Coordinación' && (
+                    <TouchableOpacity onPress={() => setConfirmId(item.id_multa)}>
+                      <Ionicons name="trash" size={22} color="#e74c3c" />
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
             />
@@ -162,6 +171,12 @@ const styles = StyleSheet.create({
   fecha: {
     color: '#555',
     marginTop: 4,
+  },
+  detalle: {
+    color: '#888',
+    fontSize: 13,
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   closeBtn: {
     marginTop: 20,

@@ -23,6 +23,7 @@ export default function Multas({ navigation }) {
   const [modalDetalleVisible, setModalDetalleVisible] = useState(false);
   const [dirigenteSeleccionado, setDirigenteSeleccionado] = useState(null);
 
+
   const [multasDirigente, setMultasDirigente] = useState([]);
   const [loadingDetalle, setLoadingDetalle] = useState(false);
 
@@ -148,14 +149,20 @@ export default function Multas({ navigation }) {
       <ScrollView contentContainerStyle={styles.content}>
         
         {/* ===== MULTAS ===== */}
-        <TotalCard total={totalconFormato}/>
+        <TouchableOpacity onPress={() => cargarMultasDirigente(user.dirigente)}>
+          <TotalCard total={totalconFormato}/>
+        </TouchableOpacity>
 
         {multasAgrupadas.map((item, i) => (
-          <Row
+          <TouchableOpacity
             key={i}
-            left={item.motivo}
-            right={`$${item.monto.toLocaleString()}`}
-          />
+            onPress={() => cargarMultasDirigente(user.dirigente)}
+          >
+            <Row
+              left={item.motivo}
+              right={`$${item.monto.toLocaleString()}`}
+            />
+          </TouchableOpacity>
         ))}
 
         {/* ===== DIRIGENTES ===== */}
@@ -201,6 +208,7 @@ export default function Multas({ navigation }) {
       )}
 
       <BottomNav navigation={navigation} />
+
       
       <ModalAsignarMulta
         visible={modalVisible}
