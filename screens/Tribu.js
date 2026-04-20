@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Modal, TextInput } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Modal, TextInput, FlatList } from 'react-native';
 import ExoditoItem from '../components/ExoditoItem';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BottomNav from '../components/navbar';
@@ -12,11 +12,27 @@ import { useEffect } from 'react';
 
 export default function Tribu({ navigation }) {
   const { user } = useContext(UserContext);
+  const rol = user?.dirigente?.rol;
+  const esCoordinacion = rol === 'Coordinación';
+
   const [modalNuevoVisible, setModalNuevoVisible] = useState(false);
   const [nuevoNombre, setNuevoNombre] = useState('');
   const [nuevoApellido, setNuevoApellido] = useState('');
   const [exoditos, setExoditos] = useState([]);
-  const idTribu = user.dirigente.id_tribu;
+  // Para coordinación, la tribu seleccionada arranca con la tribu asignada al usuario
+  const [tribuSeleccionada, setTribuSeleccionada] = useState(
+    esCoordinacion && user?.dirigente?.id_tribu
+      ? { id_tribu: user.dirigente.id_tribu, nombre: user.dirigente.tribu }
+      : null
+  );
+  const [todasLasTribus, setTodasLasTribus] = useState([]);
+  const [modalTribusVisible, setModalTribusVisible] = useState(false);
+
+  const idTribu = esCoordinacion ? tribuSeleccionada?.id_tribu : user?.dirigente?.id_tribu;
+  const nombreTribu = esCoordinacion
+    ? (tribuSeleccionada?.nombre || 'Selecciona una tribu')
+    : (user?.dirigente?.tribu || 'Tribu');
+
   const CARGOS = ['Exodito', 'Líder', 'Subjefe', 'Jefe'];
   const [modalEditarVisible, setModalEditarVisible] = useState(false);
   const [exoditoSeleccionado, setExoditoSeleccionado] = useState(null);
@@ -36,6 +52,25 @@ export default function Tribu({ navigation }) {
   useEffect(() => {
     AsyncStorage.getItem('token').then(setToken);
   }, []);
+
+  // Cargar todas las tribus si es coordinación
+  useEffect(() => {
+    if (!esCoordinacion || !token) return;
+    const cargarTribus = async () => {
+      try {
+        const res = await fetch(`${API_URL}/tribus`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setTodasLasTribus(data);
+        }
+      } catch (err) {
+        console.error('Error cargando tribus:', err);
+      }
+    };
+    cargarTribus();
+  }, [esCoordinacion, token]);
 
   const cambiarCargo = async (exodito, direccion) => {
     const indexActual = CARGOS.indexOf(exodito.cargo);
@@ -185,6 +220,10 @@ export default function Tribu({ navigation }) {
   };
   useEffect(() => {
     if (!idTribu || !token) return;
+    // Limpiar estado al cambiar de tribu
+    setExoditos([]);
+    setPresentes([]);
+    setModo('vista');
 
     const cargarExoditos = async () => {
       try {
@@ -217,20 +256,47 @@ export default function Tribu({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <SectionTitle title={user?.dirigente?.tribu || 'Tribu'} />
+      <SectionTitle title={nombreTribu} />
 
-      {/* Selector de modos */}
-      <View style={styles.modosContainer}>
-        {renderModoButton('vista', 'eye-outline', 'Vista')}
-        {renderModoButton('editar', 'pencil', 'Editar')}
-        {renderModoButton('asistencia', 'checkmark-circle-outline', 'Asistencia')}
-      </View>
+      {/* Selector de tribu para coordinación */}
+      {esCoordinacion && (
+        <TouchableOpacity
+          style={styles.selectorTribu}
+          onPress={() => setModalTribusVisible(true)}
+        >
+          <Ionicons name="people-outline" size={20} color="#FF8C42" />
+          <Text style={styles.selectorTribuText}>
+            {tribuSeleccionada ? tribuSeleccionada.nombre : 'Elige una tribu'}
+          </Text>
+          <Ionicons name="chevron-down" size={18} color="#888" />
+        </TouchableOpacity>
+      )}
+
+      {/* Selector de modos (solo si hay tribu seleccionada o no es coordinación) */}
+      {(!esCoordinacion || tribuSeleccionada) && (
+        <View style={styles.modosContainer}>
+          {renderModoButton('vista', 'eye-outline', 'Vista')}
+          {renderModoButton('editar', 'pencil', 'Editar')}
+          {renderModoButton('asistencia', 'checkmark-circle-outline', 'Asistencia')}
+        </View>
+      )}
 
       <WaveBackground />
 
       <ScrollView contentContainerStyle={styles.content}>
+        {/* Placeholder cuando coordinación aún no eligió tribu */}
+        {esCoordinacion && !tribuSeleccionada && (
+          <View style={styles.placeholderContainer}>
+            <Ionicons name="people-circle-outline" size={72} color="#FFD5B0" />
+            <Text style={styles.placeholderTitle}>Selecciona una tribu</Text>
+            <Text style={styles.placeholderSub}>
+              Elige una tribu arriba para ver y registrar su asistencia.
+            </Text>
+          </View>
+        )}
+
         {/* Leyenda */}
-        {(modo === 'vista' || modo === 'editar') && (
+        {(!esCoordinacion || tribuSeleccionada) && (modo === 'vista' || modo === 'editar') && (
           <View style={styles.leyenda}>
             <Text style={styles.leyendaText}>
               <Ionicons name="triangle" size={20} color="#000" /> Jefe
@@ -245,7 +311,7 @@ export default function Tribu({ navigation }) {
         )}
 
         {/* Info modo asistencia */}
-        {modo === 'asistencia' && (
+        {(!esCoordinacion || tribuSeleccionada) && modo === 'asistencia' && (
           <View style={styles.infoAsistencia}>
             <Ionicons name="information-circle-outline" size={20} color="#555" />
             <Text style={styles.infoText}>
@@ -367,6 +433,56 @@ export default function Tribu({ navigation }) {
       ) : null}
 
       <BottomNav navigation={navigation} />
+
+      {/* MODAL SELECTOR DE TRIBUS (solo coordinación) */}
+      <Modal
+        transparent
+        animationType="slide"
+        visible={modalTribusVisible}
+        onRequestClose={() => setModalTribusVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '70%' }]}>
+            <Text style={styles.modalTitle}>Seleccionar Tribu</Text>
+            <FlatList
+              data={todasLasTribus}
+              keyExtractor={(item) => item.id_tribu.toString()}
+              contentContainerStyle={{ width: '100%' }}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.tribusListItem,
+                    tribuSeleccionada?.id_tribu === item.id_tribu && styles.tribusListItemActivo,
+                  ]}
+                  onPress={() => {
+                    setTribuSeleccionada(item);
+                    setModalTribusVisible(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.tribusListItemText,
+                      tribuSeleccionada?.id_tribu === item.id_tribu && { color: '#fff', fontWeight: 'bold' },
+                    ]}
+                  >
+                    {item.nombre}
+                  </Text>
+                  {tribuSeleccionada?.id_tribu === item.id_tribu && (
+                    <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity
+              style={styles.cancelBtnModal}
+              onPress={() => setModalTribusVisible(false)}
+            >
+              <Text style={{ fontWeight: '600', color: 'black' }}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <Modal
         animationType="slide"
         transparent={true}
@@ -502,6 +618,69 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
     marginTop: 30,
+  },
+
+  selectorTribu: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 4,
+    backgroundColor: '#FFF3EA',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#FFCBA0',
+    gap: 10,
+  },
+
+  selectorTribuText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+  },
+
+  placeholderContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    gap: 12,
+  },
+
+  placeholderTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#888',
+  },
+
+  placeholderSub: {
+    fontSize: 14,
+    color: '#aaa',
+    textAlign: 'center',
+    marginHorizontal: 30,
+  },
+
+  tribusListItem: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    marginBottom: 6,
+    backgroundColor: '#f5f5f5',
+  },
+
+  tribusListItemActivo: {
+    backgroundColor: '#FF8C42',
+  },
+
+  tribusListItemText: {
+    fontSize: 16,
+    color: '#333',
   },
 
   modosContainer: {
