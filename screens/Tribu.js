@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Modal, TextInput, FlatList } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Modal, TextInput, FlatList, Linking } from 'react-native';
 import ExoditoItem from '../components/ExoditoItem';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BottomNav from '../components/navbar';
@@ -19,19 +19,42 @@ export default function Tribu({ navigation }) {
   const [nuevoNombre, setNuevoNombre] = useState('');
   const [nuevoApellido, setNuevoApellido] = useState('');
   const [exoditos, setExoditos] = useState([]);
+  const idTribuSecundariaUsuario = user?.dirigente?.id_tribu_secundaria || null;
+  const tieneSecundaria = !esCoordinacion && !!idTribuSecundariaUsuario;
+
   // Para coordinación, la tribu seleccionada arranca con la tribu asignada al usuario
   const [tribuSeleccionada, setTribuSeleccionada] = useState(
     esCoordinacion && user?.dirigente?.id_tribu
       ? { id_tribu: user.dirigente.id_tribu, nombre: user.dirigente.tribu }
       : null
   );
+  // Para dirigentes con tribu secundaria: tribu actualmente activa
+  const [tribuActivaNormal, setTribuActivaNormal] = useState(
+    tieneSecundaria
+      ? { id_tribu: user.dirigente.id_tribu, nombre: user.dirigente.tribu, drive: user.dirigente.drive }
+      : null
+  );
   const [todasLasTribus, setTodasLasTribus] = useState([]);
   const [modalTribusVisible, setModalTribusVisible] = useState(false);
 
-  const idTribu = esCoordinacion ? tribuSeleccionada?.id_tribu : user?.dirigente?.id_tribu;
+  // Tribu activa unificada para los tres casos
+  const idTribu = esCoordinacion
+    ? tribuSeleccionada?.id_tribu
+    : tieneSecundaria
+      ? tribuActivaNormal?.id_tribu
+      : user?.dirigente?.id_tribu;
+
   const nombreTribu = esCoordinacion
     ? (tribuSeleccionada?.nombre || 'Selecciona una tribu')
-    : (user?.dirigente?.tribu || 'Tribu');
+    : tieneSecundaria
+      ? (tribuActivaNormal?.nombre || user?.dirigente?.tribu || 'Tribu')
+      : (user?.dirigente?.tribu || 'Tribu');
+
+  const driveUrl = esCoordinacion
+    ? (tribuSeleccionada?.drive || null)
+    : tieneSecundaria
+      ? (tribuActivaNormal?.drive || null)
+      : (user?.dirigente?.drive || null);
 
   const CARGOS = ['Exodito', 'Líder', 'Subjefe', 'Jefe'];
   const [modalEditarVisible, setModalEditarVisible] = useState(false);
@@ -71,6 +94,32 @@ export default function Tribu({ navigation }) {
     };
     cargarTribus();
   }, [esCoordinacion, token]);
+
+  // Cargar datos de tribu secundaria para dirigentes que la tienen
+  useEffect(() => {
+    if (!tieneSecundaria || !token) return;
+    const cargarTribusDelDirigente = async () => {
+      try {
+        const res = await fetch(`${API_URL}/tribus`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (res.ok) {
+          // Guardamos las dos tribus disponibles para el dirigente
+          const tribuPrincipal = data.find(t => Number(t.id_tribu) === Number(user.dirigente.id_tribu));
+          const tribuSecundaria = data.find(t => Number(t.id_tribu) === Number(idTribuSecundariaUsuario));
+          // Actualizar la tribu activa inicial con la info completa (incluye drive)
+          if (tribuPrincipal) setTribuActivaNormal(tribuPrincipal);
+          setTodasLasTribus(
+            [tribuPrincipal, tribuSecundaria].filter(Boolean)
+          );
+        }
+      } catch (err) {
+        console.error('Error cargando tribus del dirigente:', err);
+      }
+    };
+    cargarTribusDelDirigente();
+  }, [tieneSecundaria, token]);
 
   const cambiarCargo = async (exodito, direccion) => {
     const indexActual = CARGOS.indexOf(exodito.cargo);
@@ -272,13 +321,44 @@ export default function Tribu({ navigation }) {
         </TouchableOpacity>
       )}
 
-      {/* Selector de modos (solo si hay tribu seleccionada o no es coordinación) */}
-      {(!esCoordinacion || tribuSeleccionada) && (
+      {/* Selector de tribu para dirigentes con tribu secundaria */}
+      {tieneSecundaria && (
+        <View style={styles.tribuTabsRow}>
+          {todasLasTribus.map(t => {
+            const activa = Number(t.id_tribu) === Number(tribuActivaNormal?.id_tribu);
+            return (
+              <TouchableOpacity
+                key={t.id_tribu}
+                style={[styles.tribuTab, activa && styles.tribuTabActiva]}
+                onPress={() => setTribuActivaNormal(t)}
+              >
+                <Text style={[styles.tribuTabText, activa && styles.tribuTabTextActiva]}>
+                  {t.nombre}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
+      {/* Selector de modos (solo si hay tribu activa) */}
+      {(!esCoordinacion || tribuSeleccionada) && (!tieneSecundaria || tribuActivaNormal) && (
         <View style={styles.modosContainer}>
           {renderModoButton('vista', 'eye-outline', 'Vista')}
           {renderModoButton('editar', 'pencil', 'Editar')}
           {renderModoButton('asistencia', 'checkmark-circle-outline', 'Asistencia')}
         </View>
+      )}
+
+      {/* Botón Drive */}
+      {driveUrl && (!esCoordinacion || tribuSeleccionada) && (
+        <TouchableOpacity
+          style={styles.driveBtn}
+          onPress={() => Linking.openURL(driveUrl)}
+        >
+          <Ionicons name="folder-open-outline" size={20} color="#fff" />
+          <Text style={styles.driveBtnText}>Abrir Drive</Text>
+        </TouchableOpacity>
       )}
 
       <WaveBackground />
@@ -642,6 +722,40 @@ const styles = StyleSheet.create({
     color: '#333',
   },
 
+  tribuTabsRow: {
+    flexDirection: 'row',
+    marginHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 4,
+    gap: 10,
+  },
+
+  tribuTab: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: '#f0f0f0',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+
+  tribuTabActiva: {
+    backgroundColor: '#FF8C42',
+    borderColor: '#FF8C42',
+  },
+
+  tribuTabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#555',
+  },
+
+  tribuTabTextActiva: {
+    color: '#fff',
+  },
+
   placeholderContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -864,6 +978,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
     textAlign: 'center',
+  },
+
+  driveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 4,
+    backgroundColor: '#1a73e8',
+    borderRadius: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+
+  driveBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
   },
 
 });

@@ -8,6 +8,7 @@ export default function DirigenteModal({ visible, dirigente, onClose, onSaved })
   const [rol, setRol] = useState('');
   const [comite, setComite] = useState('');
   const [idTribu, setIdTribu] = useState(0);
+  const [idTribuSecundaria, setIdTribuSecundaria] = useState(0);
   const [tribus, setTribus] = useState([]);
   const [tribusOrdenadas, setTribusOrdenadas] = useState([]);
   useEffect(() => {
@@ -34,6 +35,7 @@ export default function DirigenteModal({ visible, dirigente, onClose, onSaved })
       setRol(dirigente.rol || '');
       setComite(dirigente.comite || '');
       setIdTribu(dirigente.id_tribu ? Number(dirigente.id_tribu) : 0);
+      setIdTribuSecundaria(dirigente.id_tribu_secundaria ? Number(dirigente.id_tribu_secundaria) : 0);
     }
   }, [dirigente]);
 
@@ -42,7 +44,7 @@ export default function DirigenteModal({ visible, dirigente, onClose, onSaved })
       const res = await fetch(`${API_URL}/dirigente/${dirigente.id_dirigente}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rol, comite, id_tribu: idTribu }),
+        body: JSON.stringify({ rol, comite, id_tribu: idTribu, id_tribu_secundaria: idTribuSecundaria || null }),
       });
 
       const data = await res.json();
@@ -177,6 +179,20 @@ export default function DirigenteModal({ visible, dirigente, onClose, onSaved })
             ))}
           </Picker>
 
+          <Text style={styles.pickerLabel}>Tribu secundaria</Text>
+          <Picker selectedValue={idTribuSecundaria} onValueChange={value => setIdTribuSecundaria(value)}>
+            <Picker.Item label="Ninguna" value={0} />
+            {tribusOrdenadas
+              .filter(t => Number(t.id_tribu) !== idTribu)
+              .map(t => (
+                <Picker.Item
+                  key={t.id_tribu}
+                  label={t.nombre}
+                  value={Number(t.id_tribu)}
+                />
+              ))}
+          </Picker>
+
 
           <View style={styles.buttons}>
             <TouchableOpacity onPress={onClose} style={styles.cancel}>
@@ -257,6 +273,15 @@ const styles = StyleSheet.create({
     borderColor: '#ccc',
     borderRadius: 10,
     marginBottom: 10,
-  }
+  },
+
+  pickerLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#555',
+    marginTop: 4,
+    marginBottom: 2,
+    marginLeft: 2,
+  },
 
 });

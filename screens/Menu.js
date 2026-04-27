@@ -101,6 +101,7 @@ export default function Menu({ navigation }) {
           <MenuItem icon="document-text-outline" label="Actas" onPress={() => Linking.openURL('https://drive.google.com/drive/folders/1lzrdK3J9b7JVNWCG8GT0Njuz2-LogfOB')} />
           <MenuItem icon="calendar-outline" label="Cronogramas" onPress={() => { }} />
           <MenuItem icon="time-outline" label="Asambleas" onPress={() => Linking.openURL('https://drive.google.com/drive/folders/17cBGA5hulhUl53DNrEYgMAtbbtq-AGpW')} />
+          <MenuItem icon="folder-open-outline" label="Carpeta General" onPress={() => Linking.openURL('https://drive.google.com/drive/folders/1xU_t1-8voZRPcwhQWz5_U38-D7liQzD-?usp=drive_link')} />
           <MenuItem
             icon="lock-closed-outline"
             label="Contraseña"
