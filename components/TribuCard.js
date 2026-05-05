@@ -13,18 +13,26 @@ const textoBlanco = tribusTextoBlanco.includes(tribu.nombre);
 
   return (
     <View style={[styles.card, { backgroundColor: tribu.color_hex }]}>
-      <TouchableOpacity onPress={onRestar}>
-        <Text style={[styles.btn, { color: textoBlanco ? '#fff' : '#000' }]}>−</Text>
-      </TouchableOpacity>
+      {onRestar ? (
+        <TouchableOpacity onPress={onRestar}>
+          <Text style={[styles.btn, { color: textoBlanco ? '#fff' : '#000' }]}>−</Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.placeholder} />
+      )}
 
       <View style={styles.center}>
         <Text style={[styles.nombre, { color: textoBlanco ? '#fff' : '#000' }]}>{tribu.nombre}</Text>
         <Text style={[styles.puntos, { color: textoBlanco ? '#fff' : '#000' }]}>{tribu.puntos}</Text>
       </View>
 
-      <TouchableOpacity onPress={onSumar}>
-        <Text style={[styles.btn, { color: textoBlanco ? '#fff' : '#000' }]}>+</Text>
-      </TouchableOpacity>
+      {onSumar ? (
+        <TouchableOpacity onPress={onSumar}>
+          <Text style={[styles.btn, { color: textoBlanco ? '#fff' : '#000' }]}>+</Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.placeholder} />
+      )}
     </View>
   );
 }
@@ -55,5 +63,8 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 26,
     fontWeight: 'bold',
+  },
+  placeholder: {
+    width: 26,
   },
 });

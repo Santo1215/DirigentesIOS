@@ -218,6 +218,11 @@ export default function Tribu({ navigation }) {
 
 
     try {
+      // Fecha local del dispositivo en formato YYYY-MM-DD para evitar
+      // que el servidor UTC registre el día siguiente cuando se envía tarde
+      const ahora = new Date();
+      const fechaLocal = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
+
       const res = await fetch(`${API_URL}/asistencia/exoditos`, {
         method: 'POST',
         headers: {
@@ -226,6 +231,7 @@ export default function Tribu({ navigation }) {
         },
         body: JSON.stringify({
           asistencias: payload,
+          fecha: fechaLocal,
         }),
       });
 
@@ -609,12 +615,6 @@ export default function Tribu({ navigation }) {
                   }
 
                   try {
-                    console.log({
-                      nombre: nuevoNombre,
-                      apellido: nuevoApellido,
-                      id_tribu: idTribu,
-                    });
-
                     const res = await fetch(`${API_URL}/exoditos`, {
                       method: 'POST',
                       headers: {

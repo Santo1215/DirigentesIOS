@@ -21,10 +21,9 @@ export default function BottomNav({ navigation }) {
       {comite === 'Asistencia' && (
         <NavItem icon="bookmark" label="Asistencia" onPress={() => navigation.navigate('AsistenciaTribus')} />
       )}
-      {/* SOLO COMITÉ DE PUNTOS */}
-      {(comite === 'Puntos' || user.dirigente.id_dirigente === 1) && (
+      
         <NavItem icon="star" label="Puntos" onPress={() => navigation.navigate('Puntos')} />
-      )}
+    
 
       <NavItem icon="wallet" label="Multas" onPress={() => navigation.navigate('Multas')} />
 

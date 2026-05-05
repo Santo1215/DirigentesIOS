@@ -1,13 +1,19 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useContext } from 'react';
 import TribuCard from '../components/TribuCard';
 import BottomNav from '../components/navbar';
 import { API_URL } from '../api';
 import WaveBackground from '../components/WaveBackground';
+import { UserContext } from '../context/UserContext';
 
 export default function Puntos({ navigation }) {
+  const { user } = useContext(UserContext);
   const [tribus, setTribus] = useState([]);
   const [cantidad, setCantidad] = useState(5);
+  if (!user) return null;
+  const { rol, comite, id_dirigente } = user.dirigente;
+  const canEdit = comite === 'Puntos' || id_dirigente === 1;
+
   const sumarPuntos = async (idTribu) => {
     const puntosFinales = await actualizarPuntosBD(idTribu, cantidad);
     if (puntosFinales === null) return;
@@ -78,27 +84,29 @@ export default function Puntos({ navigation }) {
       <View style={styles.titleBox}>
         <Text style={styles.title}>Puntos</Text>
       </View>
+      
+      {/* Selector cantidad - solo comité Puntos */}
+      {canEdit && (
+        <View style={styles.selector}>
+          <TouchableOpacity onPress={() => setCantidad(Math.max(1, cantidad - 1))}>
+            <Text style={styles.selectorBtn}>−</Text>
+          </TouchableOpacity>
 
-      {/* Selector cantidad */}
-      <View style={styles.selector}>
-        <TouchableOpacity onPress={() => setCantidad(Math.max(1, cantidad - 1))}>
-          <Text style={styles.selectorBtn}>−</Text>
-        </TouchableOpacity>
+          <Text style={styles.selectorText}>{cantidad}</Text>
 
-        <Text style={styles.selectorText}>{cantidad}</Text>
-
-        <TouchableOpacity onPress={() => setCantidad(cantidad + 1)}>
-          <Text style={styles.selectorBtn}>+</Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity onPress={() => setCantidad(cantidad + 1)}>
+            <Text style={styles.selectorBtn}>+</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <ScrollView contentContainerStyle={styles.grid}>
         {tribus.map((tribu) => (
           <TribuCard
             key={tribu.id_tribu}
             tribu={tribu}
-            onSumar={() => sumarPuntos(tribu.id_tribu)}
-            onRestar={() => restarPuntos(tribu.id_tribu)}
+            onSumar={canEdit ? () => sumarPuntos(tribu.id_tribu) : null}
+            onRestar={canEdit ? () => restarPuntos(tribu.id_tribu) : null}
           />
         ))}
       </ScrollView>
