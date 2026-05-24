@@ -109,7 +109,7 @@ export default function AsistenciaTribusScreen({ navigation }) {
 
   const presentes = todos.filter(e => e.estado === 'Presente').length;
   const ausentes = todos.filter(e => e.estado ==='Ausente').length;
-  const total = (presentes / (presentes + ausentes)) * 100 || 0;
+  const total = ((presentes / (presentes + ausentes)) * 100 ).toFixed(1) || 0;
 
   /* ===============================
      Loading
@@ -157,7 +157,7 @@ export default function AsistenciaTribusScreen({ navigation }) {
           <Text style={styles.statLabel}>Ausentes</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{total}</Text>
+          <Text style={styles.statNumber}>{total}%</Text>
           <Text style={styles.statLabel}>Total</Text>
         </View>
       </View>
@@ -173,7 +173,7 @@ export default function AsistenciaTribusScreen({ navigation }) {
 
           const presentes = section.data.filter(e => e.estado === 'Presente').length;
           const ausentes = section.data.filter(e => e.estado === 'Ausente').length;
-          const total = (presentes + ausentes) > 0 ? ((presentes / (presentes + ausentes)) * 100) : 0;
+          const total = (presentes + ausentes) > 0 ? ((presentes / (presentes + ausentes)) * 100).toFixed(1) : 0;
 
           return (
             <View style={[
@@ -190,7 +190,7 @@ export default function AsistenciaTribusScreen({ navigation }) {
               <View style={styles.tribuStats}>
                 <Text style={[styles.tribuStat, { color: text }]}>Presentes: {presentes}</Text>
                 <Text style={[styles.tribuStat, { color: text }]}>Ausentes: {ausentes}</Text>
-                <Text style={[styles.tribuStat, { color: text }]}>Total: {total}</Text>
+                <Text style={[styles.tribuStat, { color: text }]}>Total: {total}%</Text>
               </View>
             </View>
           );
