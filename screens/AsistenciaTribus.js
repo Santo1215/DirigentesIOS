@@ -109,7 +109,7 @@ export default function AsistenciaTribusScreen({ navigation }) {
 
   const presentes = todos.filter(e => e.estado === 'Presente').length;
   const ausentes = todos.filter(e => e.estado ==='Ausente').length;
-  const total = presentes;
+  const total = (presentes / (presentes + ausentes)) * 100 || 0;
 
   /* ===============================
      Loading
@@ -173,7 +173,7 @@ export default function AsistenciaTribusScreen({ navigation }) {
 
           const presentes = section.data.filter(e => e.estado === 'Presente').length;
           const ausentes = section.data.filter(e => e.estado === 'Ausente').length;
-          const total = section.data.length;
+          const total = (presentes + ausentes) > 0 ? ((presentes / (presentes + ausentes)) * 100) : 0;
 
           return (
             <View style={[
