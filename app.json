@@ -55,7 +55,14 @@
     },
     "plugins": [
       "@react-native-community/datetimepicker",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icono.png",
+          "color": "#FFA726"
+        }
+      ]
     ],
     "extra": {
       "eas": {

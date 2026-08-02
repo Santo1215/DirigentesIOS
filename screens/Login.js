@@ -4,6 +4,7 @@ import { API_URL } from '../api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
+import * as Notifications from 'expo-notifications';
 import {
   StyleSheet, Text, View, TextInput,
   TouchableOpacity, Image, Dimensions,
@@ -13,6 +14,87 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
+
+// Llave pública VAPID (segura de exponer en el cliente, es la mitad "pública" del par)
+const VAPID_PUBLIC_KEY = 'BBCbXwhvuOh9cpxMTD5ziRvW1uykMUCVGrmLK_Tnf4MkjkkkTVtc2kUtaeWDJN_TUtPw4A5HUck6Wogq9EvFZAI';
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+/* Registrar suscripción de notificaciones push del navegador (versión web) */
+const registrarPushTokenWeb = async (authToken) => {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    console.log('⚠️ Este navegador no soporta notificaciones push');
+    return;
+  }
+
+  try {
+    const permiso = await Notification.requestPermission();
+    if (permiso !== 'granted') return;
+
+    const registration = await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.ready;
+
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+
+    await fetch(`${API_URL}/push-token/web`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({ subscription }),
+    });
+    console.log('✅ Suscripción web registrada');
+  } catch (err) {
+    console.log('⚠️ No se pudo registrar la suscripción web:', err.message);
+  }
+};
+
+/* Registrar push token en el backend (silencioso, no bloquea login) */
+const registrarPushToken = async (authToken) => {
+  if (Platform.OS === 'web') return registrarPushTokenWeb(authToken);
+  try {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') return;
+
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId: '74f86b79-7475-4aa0-8400-9c6253e2095e',
+    });
+    const pushToken = tokenData.data;
+
+    await fetch(`${API_URL}/push-token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({ token: pushToken }),
+    });
+    console.log('✅ Push token registrado:', pushToken);
+  } catch (err) {
+    console.log('⚠️ No se pudo registrar push token:', err.message);
+  }
+};
 
 const { width } = Dimensions.get('window');
 
@@ -80,6 +162,7 @@ function LoginContent({ navigation }) {
       }
       await AsyncStorage.setItem('token', data.token);
       setUser({ dirigente: data.dirigente });
+      registrarPushToken(data.token);
       navigation.replace('Home');
     } catch (error) {
       setErrorMsg('Error de conexión');
@@ -113,6 +196,7 @@ const handleLogin = async () => {
 
     await AsyncStorage.setItem('token', data.token);
     setUser({ dirigente: data.dirigente });
+    registrarPushToken(data.token);
 
     // Preguntar biometría ANTES de navegar, solo en móvil
     if (Platform.OS !== 'web') {

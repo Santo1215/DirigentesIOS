@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, SectionList, ActivityIndicator,
-  StyleSheet, TouchableOpacity, Modal, Platform
+  StyleSheet, TouchableOpacity, Modal, Platform, Alert
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../api';
@@ -32,8 +32,11 @@ export default function AsistenciaTribusScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [mostrarPicker, setMostrarPicker] = useState(false);
   const [token, setToken] = useState(null);
+  const [confirmModal, setConfirmModal] = useState({ visible: false, tipo: null });
+  const [enviandoNotif, setEnviandoNotif] = useState(false);
+  const [notifModal, setNotifModal] = useState(false);
 
-  useEffect(() => { 
+  useEffect(() => {
     AsyncStorage.getItem('token').then(setToken);
   }, []);
 
@@ -55,14 +58,14 @@ export default function AsistenciaTribusScreen({ navigation }) {
     Levi: { bg: '#ED2100', text: 'black' },
     Zabulón: { bg: '#002A85', text: 'white' },
     Dan: { bg: '#000000', text: 'white' },
-    Aser:{bg:'#88E788',text:'black'},
-    Gad:{bg:'#0F3D3E',text:'white'},
-    Simeón:{bg:'#40E0D0',text:'black'},
-    Neftalí:{bg:'#FF891B',text:'black'},
-    Benjamín:{bg:'#960D32',text:'white'},
-    José:{bg:'#D7D7D7',text:'black'},
-    Isacar:{bg:'#A745D6',text:'white'},
-    Rubén:{bg:'#06402B',text:'white'},
+    Aser: { bg: '#88E788', text: 'black' },
+    Gad: { bg: '#0F3D3E', text: 'white' },
+    Simeón: { bg: '#40E0D0', text: 'black' },
+    Neftalí: { bg: '#FF891B', text: 'black' },
+    Benjamín: { bg: '#960D32', text: 'white' },
+    José: { bg: '#D7D7D7', text: 'black' },
+    Isacar: { bg: '#A745D6', text: 'white' },
+    Rubén: { bg: '#06402B', text: 'white' },
   };
 
   const getTribuColors = (tribu) => {
@@ -108,8 +111,101 @@ export default function AsistenciaTribusScreen({ navigation }) {
   const todos = sections.flatMap(s => s.data);
 
   const presentes = todos.filter(e => e.estado === 'Presente').length;
-  const ausentes = todos.filter(e => e.estado ==='Ausente').length;
-  const total = ((presentes / (presentes + ausentes)) * 100 ).toFixed(1) || 0;
+  const ausentes = todos.filter(e => e.estado === 'Ausente').length;
+  const total = ((presentes / (presentes + ausentes)) * 100).toFixed(1) || 0;
+
+  /* ===============================
+     Eliminar asistencia
+  =============================== */
+
+  const eliminarAsistencia = async (tipo) => {
+    const endpoint = tipo === 'exoditos'
+      ? `${API_URL}/asistencia/exoditos`
+      : `${API_URL}/asistencia/dirigentes`;
+
+    try {
+      const res = await fetch(endpoint, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        if (Platform.OS === 'web') {
+          alert(json.error || 'Error al eliminar');
+        } else {
+          Alert.alert('Error', json.error || 'Error al eliminar');
+        }
+        return;
+      }
+
+      const msg = `${json.mensaje} (${json.eliminados} registros)`;
+      if (Platform.OS === 'web') {
+        alert(msg);
+      } else {
+        Alert.alert('Éxito', msg);
+      }
+
+      cargarAsistencia();
+    } catch (err) {
+      const errorMsg = 'Error de conexión al eliminar';
+      if (Platform.OS === 'web') {
+        alert(errorMsg);
+      } else {
+        Alert.alert('Error', errorMsg);
+      }
+    }
+  };
+
+  /* ===============================
+     Enviar notificación recordatorio
+  =============================== */
+
+  const enviarRecordatorio = async () => {
+    setEnviandoNotif(true);
+    try {
+      const res = await fetch(
+        `${API_URL}/notificacion/recordatorio-tribu`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        const errorMsg = json.error || 'Error al enviar notificación';
+        if (Platform.OS === 'web') {
+          alert(errorMsg);
+        } else {
+          Alert.alert('Error', errorMsg);
+        }
+        return;
+      }
+
+      const msg = `Notificación enviada a ${json.enviados} dispositivo(s)`;
+      if (Platform.OS === 'web') {
+        alert(msg);
+      } else {
+        Alert.alert('Enviado', msg);
+      }
+    } catch (err) {
+      const errorMsg = 'Error de conexión al enviar notificación';
+      if (Platform.OS === 'web') {
+        alert(errorMsg);
+      } else {
+        Alert.alert('Error', errorMsg);
+      }
+    } finally {
+      setEnviandoNotif(false);
+      setNotifModal(false);
+    }
+  };
 
   /* ===============================
      Loading
@@ -144,6 +240,23 @@ export default function AsistenciaTribusScreen({ navigation }) {
         </View>
       </View>
 
+      {/* Botones: eliminar + notificación */}
+      <View style={styles.deleteButtonsRow}>
+        <TouchableOpacity
+          style={styles.deleteBtn}
+          onPress={() => setConfirmModal({ visible: true, tipo: 'exoditos' })}
+        >
+          <Text style={styles.deleteBtnText}>Eliminar asist. exoditos</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.notifBtn}
+          onPress={() => setNotifModal(true)}
+        >
+          <Text style={styles.notifBtnText}>Enviar recordatorio</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Stats */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
@@ -164,7 +277,7 @@ export default function AsistenciaTribusScreen({ navigation }) {
 
       {/* Lista por tribu */}
       <SectionList
-        style={{zIndex: 2}}
+        style={{ zIndex: 2 }}
         sections={sections}
         keyExtractor={(item) => item.id_exodito.toString()}
         contentContainerStyle={{ paddingBottom: 80 }}
@@ -198,8 +311,8 @@ export default function AsistenciaTribusScreen({ navigation }) {
 
 
         renderItem={({ item }) => (
-          <View style={[ styles.card, 
-            item.estado === 'Presente' ? styles.cardPresent: styles.cardAbsent]}>
+          <View style={[styles.card,
+          item.estado === 'Presente' ? styles.cardPresent : styles.cardAbsent]}>
 
             <Text style={styles.name}>
               {item.nombre} {item.apellido}
@@ -257,8 +370,68 @@ export default function AsistenciaTribusScreen({ navigation }) {
           </View>
         </Modal>
       )}
+      {/* Modal confirmación eliminar */}
+      <Modal transparent animationType="fade" visible={confirmModal.visible} onRequestClose={() => setConfirmModal({ visible: false, tipo: null })}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={{ fontSize: 40, marginBottom: 10 }}>⚠️</Text>
+            <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 8, textAlign: 'center' }}>
+              Eliminar asistencia de {confirmModal.tipo}
+            </Text>
+            <Text style={{ color: '#666', fontSize: 14, marginBottom: 20, textAlign: 'center' }}>
+              Se eliminarán TODOS los registros de asistencia de {confirmModal.tipo}. Esta acción no se puede deshacer.
+            </Text>
+            <TouchableOpacity
+              style={{ backgroundColor: '#F44336', paddingVertical: 12, paddingHorizontal: 30, borderRadius: 25, width: '100%', alignItems: 'center' }}
+              onPress={() => {
+                eliminarAsistencia(confirmModal.tipo);
+                setConfirmModal({ visible: false, tipo: null });
+              }}
+            >
+              <Text style={{ color: '#fff', fontWeight: 'bold' }}>Sí, eliminar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ marginTop: 12, paddingVertical: 10 }}
+              onPress={() => setConfirmModal({ visible: false, tipo: null })}
+            >
+              <Text style={{ color: '#666' }}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal confirmación notificación */}
+      <Modal transparent animationType="fade" visible={notifModal} onRequestClose={() => setNotifModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={{ fontSize: 40, marginBottom: 10 }}>🔔</Text>
+            <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 8, textAlign: 'center' }}>
+              Enviar recordatorio
+            </Text>
+            <Text style={{ color: '#666', fontSize: 14, marginBottom: 20, textAlign: 'center' }}>
+              Se enviará una notificación a TODOS los dirigentes con el mensaje:{"\n\n"}"RECUERDA TOMAR LA ASISTENCIA DE LA TRIBU"
+            </Text>
+            <TouchableOpacity
+              style={[styles.notifConfirmBtn, enviandoNotif && { opacity: 0.6 }]}
+              onPress={enviarRecordatorio}
+              disabled={enviandoNotif}
+            >
+              <Text style={{ color: '#fff', fontWeight: 'bold' }}>
+                {enviandoNotif ? 'Enviando...' : 'Sí, enviar'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ marginTop: 12, paddingVertical: 10 }}
+              onPress={() => setNotifModal(false)}
+            >
+              <Text style={{ color: '#666' }}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <WaveBackground />
-      <BottomNav  navigation={navigation}/>
+      <BottomNav navigation={navigation} />
     </View>
   );
 }
@@ -452,31 +625,87 @@ const styles = {
     fontWeight: '600',
   },
 
-tribuStatPresentes: {
-  color: '#4CAF50',
-  fontWeight: 'bold',
-},
+  tribuStatPresentes: {
+    color: '#4CAF50',
+    fontWeight: 'bold',
+  },
 
-tribuStatAusentes: {
-  color: '#F44336',
-  fontWeight: 'bold',
-},
+  tribuStatAusentes: {
+    color: '#F44336',
+    fontWeight: 'bold',
+  },
 
-tribuStatTotal: {
-  color: '#555',
-  fontWeight: 'bold',
-},
-modalOverlay: {
-  flex: 1,
-  backgroundColor: 'rgba(0,0,0,0.5)',
-  justifyContent: 'center',
-  alignItems: 'center',
-},
-modalBox: {
-  backgroundColor: '#fff',
-  borderRadius: 16,
-  padding: 24,
-  width: '80%',
-  alignItems: 'center',
-},
+  tribuStatTotal: {
+    color: '#555',
+    fontWeight: 'bold',
+  },
+  deleteButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginTop: 12,
+    gap: 10,
+  },
+  deleteBtn: {
+    flex: 1,
+    backgroundColor: '#F44336',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+  },
+  deleteBtnDirigentes: {
+    backgroundColor: '#FF7043',
+  },
+  deleteBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBox: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '80%',
+    alignItems: 'center',
+  },
+  notifBtn: {
+    flex: 1,
+    backgroundColor: '#FFA726',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+  },
+  notifBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  notifConfirmBtn: {
+    backgroundColor: '#FFA726',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 25,
+    width: '100%',
+    alignItems: 'center',
+  },
 }

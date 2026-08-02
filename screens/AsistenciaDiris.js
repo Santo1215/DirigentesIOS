@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { 
-  View, Text, FlatList, Button, ActivityIndicator, 
-  StyleSheet, TouchableOpacity, Platform, TextInput, Modal
+import {
+  View, Text, FlatList, Button, ActivityIndicator,
+  StyleSheet, TouchableOpacity, Platform, TextInput, Modal, Alert
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../api';
@@ -37,12 +37,13 @@ export default function AsistenciaScreen({ navigation }) {
   const [dirigenteSeleccionado, setDirigenteSeleccionado] = useState(null);
   const [mostrarPicker, setMostrarPicker] = useState(false);
 
-  
+
 
   const [token, setToken] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
   const [accionModal, setAccionModal] = useState(false); // modal elegir QR o código
   const [editarModal, setEditarModal] = useState(false); // modal marcar Tarde
+  const [confirmModal, setConfirmModal] = useState({ visible: false, tipo: null });
 
   const showToast = (msg) => {
     setToastMsg(msg);
@@ -70,6 +71,45 @@ export default function AsistenciaScreen({ navigation }) {
   /* ===============================
      Backend
   =============================== */
+  const eliminarAsistencia = async (tipo) => {
+    const endpoint = tipo === 'dirigentes'
+      ? `${API_URL}/asistencia/dirigentes`
+      : `${API_URL}/asistencia/exoditos`;
+
+    try {
+      const res = await fetch(endpoint, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        if (Platform.OS === 'web') {
+          alert(json.error || 'Error al eliminar');
+        } else {
+          Alert.alert('Error', json.error || 'Error al eliminar');
+        }
+        return;
+      }
+
+      const msg = `${json.mensaje} (${json.eliminados} registros)`;
+      if (Platform.OS === 'web') {
+        alert(msg);
+      } else {
+        Alert.alert('Éxito', msg);
+      }
+    } catch (err) {
+      if (Platform.OS === 'web') {
+        alert('Error de conexión');
+      } else {
+        Alert.alert('Error', 'Error de conexión');
+      }
+    } finally {
+      setConfirmModal({ visible: false, tipo: null });
+      cargarAsistencia();
+    }
+  };
 
   const cargarAsistencia = async () => {
     setLoading(true);
@@ -155,16 +195,20 @@ export default function AsistenciaScreen({ navigation }) {
           <Text style={styles.date}>{fecha}</Text>
           <TouchableOpacity onPress={() => setMostrarPicker(true)}>
             <Text style={{ color: '#fff', marginTop: 5 }}>
-               Cambiar fecha
+              Cambiar fecha
             </Text>
           </TouchableOpacity>
 
         </View>
       </View>
-
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+      
+      <TouchableOpacity onPress={() => navigation.goBack()}>
         <Text style={styles.backIcon}>←</Text>
       </TouchableOpacity>
+      
+      <View style={styles.btnContainer}>
+        <Button title="Recargar" onPress={cargarAsistencia} />
+      </View>
 
       {/* Stats */}
       <View style={styles.statsContainer}>
@@ -231,8 +275,16 @@ export default function AsistenciaScreen({ navigation }) {
       />
 
       <View style={styles.footer}>
-        <Button title="Recargar" onPress={cargarAsistencia} />
+        <TouchableOpacity
+        style={[styles.deleteBtn, styles.deleteBtnDirigentes]}
+        onPress={() => setConfirmModal({ visible: true, tipo: 'dirigentes' })}
+      >
+        <Text style={styles.deleteBtnText}>Eliminar asist. dirigentes</Text>
+      </TouchableOpacity>
       </View>
+      
+        
+
       
       <QrScannerModal visible={qrVisible}
         onClose={() => {
@@ -328,6 +380,35 @@ export default function AsistenciaScreen({ navigation }) {
               <Text style={{ color: '#fff', fontWeight: 'bold' }}>Marcar Tarde</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.cancelBtn} onPress={() => { setEditarModal(false); setDirigenteSeleccionado(null); }}>
+              <Text style={{ color: '#666' }}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal confirmación eliminar */}
+      <Modal transparent animationType="fade" visible={confirmModal.visible} onRequestClose={() => setConfirmModal({ visible: false, tipo: null })}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={{ fontSize: 40, marginBottom: 10 }}>⚠️</Text>
+            <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 8, textAlign: 'center' }}>
+              Eliminar asistencia de {confirmModal.tipo}
+            </Text>
+            <Text style={{ color: '#666', fontSize: 14, marginBottom: 20, textAlign: 'center' }}>
+              Se eliminarán TODOS los registros de asistencia de {confirmModal.tipo}. Esta acción no se puede deshacer.
+            </Text>
+            <TouchableOpacity
+              style={{ backgroundColor: '#F44336', paddingVertical: 12, paddingHorizontal: 30, borderRadius: 25, width: '100%', alignItems: 'center' }}
+              onPress={() => {
+                eliminarAsistencia(confirmModal.tipo);
+              }}
+            >
+              <Text style={{ color: '#fff', fontWeight: 'bold' }}>Sí, eliminar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ marginTop: 12, paddingVertical: 10 }}
+              onPress={() => setConfirmModal({ visible: false, tipo: null })}
+            >
               <Text style={{ color: '#666' }}>Cancelar</Text>
             </TouchableOpacity>
           </View>
@@ -494,7 +575,7 @@ const styles = StyleSheet.create({
     paddingBottom: 80,
   },
   footer: {
-    position: 'absolute',
+    position: 'relative',
     bottom: 0,
     left: 0,
     right: 0,
@@ -578,5 +659,33 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 14,
+  },
+  deleteBtn: {
+    backgroundColor: '#F44336',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 0,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+  },
+  deleteBtnDirigentes: {
+    backgroundColor: '#FF7043',
+  },
+  deleteBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  btnContainer: {
+    marginHorizontal: 25,
+    marginBottom: 5,
+    marginTop: 10,
   },
 });
