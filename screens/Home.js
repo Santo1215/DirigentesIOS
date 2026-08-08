@@ -24,12 +24,14 @@ function Avatar({ foto }) {
   }
   
   return (
+    <View style={styles.avatarContainer}>
     <Image
       source={{ uri }}
       style={styles.avatar}
       resizeMode="cover"
       onError={() => console.log("Error cargando imagen")}
     />
+    </View>
   );
 }
 
@@ -162,19 +164,23 @@ const styles = StyleSheet.create({
     paddingTop: 40,
     zIndex: 2,
   },
+  avatarContainer: {
+    marginTop: 80,
+    marginBottom: 15,
+    borderRadius: 100, // Importante para que la sombra tome forma circular
+    elevation: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
   avatar: {
     width: 200,
     height: 200,
     borderRadius: 100,
     borderWidth: 10,
     borderColor: '#fff',
-    marginTop: 80,
-    marginBottom: 15,
-    elevation: 0,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    overflow: 'hidden',
   },
   nombre: {
     fontSize: 30,

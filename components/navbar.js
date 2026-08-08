@@ -19,7 +19,7 @@ export default function BottomNav({ navigation }) {
       <NavItem icon="flag" label="Tribu" onPress={() => navigation.navigate('Tribu')} />
       {/* SOLO COMITÉ ASISTENCIA */}
       {comite === 'Asistencia' && (
-        <NavItem icon="bookmark" label="Asistencia" onPress={() => navigation.navigate('AsistenciaTribus')} />
+        <NavItem icon="bookmark" label="Asistencia" onPress={() => navigation.navigate('AsistenciaMenu')} />
       )}
       
         <NavItem icon="star" label="Puntos" onPress={() => navigation.navigate('Puntos')} />

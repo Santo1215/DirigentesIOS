@@ -33,8 +33,8 @@ export default function AsistenciaTribusScreen({ navigation }) {
   const [mostrarPicker, setMostrarPicker] = useState(false);
   const [token, setToken] = useState(null);
   const [confirmModal, setConfirmModal] = useState({ visible: false, tipo: null });
-  const [enviandoNotif, setEnviandoNotif] = useState(false);
-  const [notifModal, setNotifModal] = useState(false);
+  
+
 
   useEffect(() => {
     AsyncStorage.getItem('token').then(setToken);
@@ -158,54 +158,7 @@ export default function AsistenciaTribusScreen({ navigation }) {
     }
   };
 
-  /* ===============================
-     Enviar notificación recordatorio
-  =============================== */
-
-  const enviarRecordatorio = async () => {
-    setEnviandoNotif(true);
-    try {
-      const res = await fetch(
-        `${API_URL}/notificacion/recordatorio-tribu`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        const errorMsg = json.error || 'Error al enviar notificación';
-        if (Platform.OS === 'web') {
-          alert(errorMsg);
-        } else {
-          Alert.alert('Error', errorMsg);
-        }
-        return;
-      }
-
-      const msg = `Notificación enviada a ${json.enviados} dispositivo(s)`;
-      if (Platform.OS === 'web') {
-        alert(msg);
-      } else {
-        Alert.alert('Enviado', msg);
-      }
-    } catch (err) {
-      const errorMsg = 'Error de conexión al enviar notificación';
-      if (Platform.OS === 'web') {
-        alert(errorMsg);
-      } else {
-        Alert.alert('Error', errorMsg);
-      }
-    } finally {
-      setEnviandoNotif(false);
-      setNotifModal(false);
-    }
-  };
+ 
 
   /* ===============================
      Loading
@@ -228,7 +181,13 @@ export default function AsistenciaTribusScreen({ navigation }) {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <View>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backIcon}>←</Text>
+        </TouchableOpacity>
+        <View style={styles.headerTextContainer}>
           <Text style={styles.title}>Asistencia por tribu</Text>
           <Text style={styles.date}>{fecha}</Text>
 
@@ -240,7 +199,7 @@ export default function AsistenciaTribusScreen({ navigation }) {
         </View>
       </View>
 
-      {/* Botones: eliminar + notificación */}
+      {/* Botones: eliminar*/}
       <View style={styles.deleteButtonsRow}>
         <TouchableOpacity
           style={styles.deleteBtn}
@@ -249,12 +208,6 @@ export default function AsistenciaTribusScreen({ navigation }) {
           <Text style={styles.deleteBtnText}>Eliminar asist. exoditos</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.notifBtn}
-          onPress={() => setNotifModal(true)}
-        >
-          <Text style={styles.notifBtnText}>Enviar recordatorio</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Stats */}
@@ -311,26 +264,40 @@ export default function AsistenciaTribusScreen({ navigation }) {
 
 
         renderItem={({ item }) => (
-          <View style={[styles.card,
-          item.estado === 'Presente' ? styles.cardPresent : styles.cardAbsent]}>
-
-            <Text style={styles.name}>
-              {item.nombre} {item.apellido}
-            </Text>
-
-            <View style={styles.presentContainer}>
+        <View style={[
+          styles.card,
+          item.estado === 'Presente' ? styles.cardPresent : styles.cardAbsent
+        ]}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            
+            {/* Lado izquierdo: Nombre y Estado */}
+            <View style={{ flex: 1, alignItems: 'flex-start', paddingRight: 10 }}>
+              <Text style={styles.name}>
+                {item.nombre} {item.apellido}
+              </Text>
+              
               <View style={[
                 styles.statusBadge,
-                { backgroundColor: estadoColor(item.estado) }
+                { backgroundColor: estadoColor(item.estado), marginTop: 8 }
               ]}>
                 <Text style={{ color: '#fff', fontWeight: 'bold' }}>
                   {item.estado ? item.estado.toUpperCase() : 'AUSENTE'}
                 </Text>
               </View>
             </View>
+
+            {/* Lado derecho: Cargo */}
+            {item.cargo ? (
+              <View>
+                <Text style={styles.role}>
+                  {item.cargo}
+                </Text>
+              </View>
+            ) : null}
+
           </View>
-        )}
-      />
+        </View>
+      )}/>
 
       {mostrarPicker && Platform.OS !== 'web' && DateTimePicker && (
         <DateTimePicker
@@ -400,36 +367,6 @@ export default function AsistenciaTribusScreen({ navigation }) {
         </View>
       </Modal>
 
-      {/* Modal confirmación notificación */}
-      <Modal transparent animationType="fade" visible={notifModal} onRequestClose={() => setNotifModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-            <Text style={{ fontSize: 40, marginBottom: 10 }}>🔔</Text>
-            <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 8, textAlign: 'center' }}>
-              Enviar recordatorio
-            </Text>
-            <Text style={{ color: '#666', fontSize: 14, marginBottom: 20, textAlign: 'center' }}>
-              Se enviará una notificación a TODOS los dirigentes con el mensaje:{"\n\n"}"RECUERDA TOMAR LA ASISTENCIA DE LA TRIBU"
-            </Text>
-            <TouchableOpacity
-              style={[styles.notifConfirmBtn, enviandoNotif && { opacity: 0.6 }]}
-              onPress={enviarRecordatorio}
-              disabled={enviandoNotif}
-            >
-              <Text style={{ color: '#fff', fontWeight: 'bold' }}>
-                {enviandoNotif ? 'Enviando...' : 'Sí, enviar'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={{ marginTop: 12, paddingVertical: 10 }}
-              onPress={() => setNotifModal(false)}
-            >
-              <Text style={{ color: '#666' }}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
       <WaveBackground />
       <BottomNav navigation={navigation} />
     </View>
@@ -449,9 +386,10 @@ const styles = {
   },
   header: {
     backgroundColor: '#FFA726',
-    padding: 20,
+    paddingTop: Platform.OS === 'ios' ? 50 : 20,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
@@ -460,6 +398,21 @@ const styles = {
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+  },
+  headerTextContainer: {
+    flex: 1,
+    marginTop: 20,
+  },
+  backButton: {
+    marginRight: 15,
+    padding: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backIcon: {
+    fontSize: 32,
+    color: '#fff',
+    fontWeight: 'bold',
   },
   title: {
     fontSize: 28,
@@ -510,11 +463,11 @@ const styles = {
     elevation: 2,
   },
   cardPresent: {
-    borderLeftWidth: 4,
+    borderLeftWidth: 10,
     borderLeftColor: '#4CAF50',
   },
   cardAbsent: {
-    borderLeftWidth: 4,
+    borderLeftWidth: 5,
     borderLeftColor: '#F44336',
   },
   cardHeader: {
@@ -524,7 +477,7 @@ const styles = {
     marginBottom: 12,
   },
   name: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
     color: '#333',
     flex: 1,
@@ -547,7 +500,7 @@ const styles = {
   },
   statusBadge: {
     backgroundColor: '#E8F5E9',
-    paddingHorizontal: 12,
+    paddingHorizontal: 18,
     paddingVertical: 6,
     borderRadius: 20,
   },
@@ -562,34 +515,7 @@ const styles = {
   absentText: {
     color: '#C62828',
     fontWeight: '500',
-  },
-  details: {
-    alignItems: 'flex-end',
-  },
-  detailText: {
-    fontSize: 12,
-    color: '#666',
-  },
-  listContent: {
-    paddingBottom: 80,
-  },
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#fff',
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    alignItems: 'center',
-  },
-  footerNote: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 8,
-    fontStyle: 'italic',
-  },
+  }, 
   loadingText: {
     fontSize: 16,
     color: '#666',
@@ -681,31 +607,5 @@ const styles = {
     width: '80%',
     alignItems: 'center',
   },
-  notifBtn: {
-    flex: 1,
-    backgroundColor: '#FFA726',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-  },
-  notifBtnText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  notifConfirmBtn: {
-    backgroundColor: '#FFA726',
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 25,
-    width: '100%',
-    alignItems: 'center',
-  },
+
 }
