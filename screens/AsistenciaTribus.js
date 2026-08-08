@@ -111,8 +111,8 @@ export default function AsistenciaTribusScreen({ navigation }) {
   const todos = sections.flatMap(s => s.data);
 
   const presentes = todos.filter(e => e.estado === 'Presente').length;
-  const ausentes = todos.filter(e => e.estado === 'Ausente').length;
-  const total = ((presentes / (presentes + ausentes)) * 100).toFixed(1) || 0;
+  const ausentes = todos.filter(e => e.estado !== 'Presente').length;
+  const total = todos.length > 0 ? ((presentes / todos.length) * 100).toFixed(1) : 0;
 
   /* ===============================
      Eliminar asistencia
@@ -238,8 +238,8 @@ export default function AsistenciaTribusScreen({ navigation }) {
           const { bg, text } = getTribuColors(section.title);
 
           const presentes = section.data.filter(e => e.estado === 'Presente').length;
-          const ausentes = section.data.filter(e => e.estado === 'Ausente').length;
-          const total = (presentes + ausentes) > 0 ? ((presentes / (presentes + ausentes)) * 100).toFixed(1) : 0;
+          const ausentes = section.data.filter(e => e.estado !== 'Presente').length;
+          const total = section.data.length > 0 ? ((presentes / section.data.length) * 100).toFixed(1) : 0;
 
           return (
             <View style={[
@@ -278,10 +278,10 @@ export default function AsistenciaTribusScreen({ navigation }) {
               
               <View style={[
                 styles.statusBadge,
-                { backgroundColor: estadoColor(item.estado), marginTop: 8 }
+                { backgroundColor: item.estado === 'Presente' ? '#4CAF50' : '#F44336', marginTop: 8 }
               ]}>
                 <Text style={{ color: '#fff', fontWeight: 'bold' }}>
-                  {item.estado ? item.estado.toUpperCase() : 'AUSENTE'}
+                  {item.estado === 'Presente' ? 'PRESENTE' : 'AUSENTE'}
                 </Text>
               </View>
             </View>
@@ -477,7 +477,7 @@ const styles = {
     marginBottom: 12,
   },
   name: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '600',
     color: '#333',
     flex: 1,

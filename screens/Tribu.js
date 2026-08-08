@@ -291,10 +291,8 @@ export default function Tribu({ navigation }) {
           }
         );
 
-        const data = await res.json();
-
-        console.log('EXODITOS CARGADOS:', data);
-
+        const data = await res.json()
+        
         if (res.ok) {
           setExoditos(data);
         } else {

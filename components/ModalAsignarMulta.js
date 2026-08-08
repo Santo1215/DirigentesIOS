@@ -96,30 +96,30 @@ export default function ModalAsignarMulta({
 
           {loading && <Text>Cargando dirigentes...</Text>}
 
-        <View style={styles.pickerContainer}>
+          <View style={styles.pickerContainer}>
             <Picker
-                selectedValue={dirigenteId}
-                onValueChange={(value) => setDirigenteId(value)}>
-                <Picker.Item label="Selecciona un dirigente" value={null} />
+              selectedValue={dirigenteId}
+              onValueChange={(value) => setDirigenteId(value)}>
+              <Picker.Item label="Selecciona un dirigente" value={null} />
 
-                {dirigentes.map((d) => (
+              {dirigentes.map((d) => (
                 <Picker.Item
-                    key={d.id_dirigente}
-                    label={`${d.nombre} ${d.apellido}`}
-                    value={d.id_dirigente}
+                  key={d.id_dirigente}
+                  label={`${d.nombre} ${d.apellido}`}
+                  value={d.id_dirigente}
                 />
-                ))}
+              ))}
             </Picker>
-        </View>
+          </View>
 
-        <Picker selectedValue={motivo} onValueChange={setMotivo}>
+          <Picker selectedValue={motivo} onValueChange={setMotivo}>
             <Picker.Item label="Seleccionar motivo" value="" />
             <Picker.Item label="Retraso" value="Retraso" />
             <Picker.Item label="Inasistencia injustificada" value="Inasistencia injustificada" />
             <Picker.Item label="Símbolos" value="Símbolos" />
             <Picker.Item label="Incumplimiento de tareas" value="Incumplimiento de tareas" />
-        </Picker>       
-         
+          </Picker>
+
           <TextInput
             style={styles.input}
             placeholder="Monto"
@@ -136,7 +136,7 @@ export default function ModalAsignarMulta({
             multiline
           />
 
-          
+
 
           {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
           {successMsg ? <Text style={styles.successText}>{successMsg}</Text> : null}
@@ -155,64 +155,64 @@ export default function ModalAsignarMulta({
     </Modal>
   );
 }
-const styles = StyleSheet.create({ 
-    overlay: {
+const styles = StyleSheet.create({
+  overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    },
-    modal: {
+  },
+  modal: {
     width: '85%',
     backgroundColor: '#fff',
     borderRadius: 10,
     padding: 20,
-    },
-    title: {
+  },
+  title: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 15,
     textAlign: 'center',
-    },
-    dirigenteBtn: {
+  },
+  dirigenteBtn: {
     padding: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#ccc',
-    },
-    dirigenteActivo: {
+  },
+  dirigenteActivo: {
     backgroundColor: '#D3DBEE',
-    },
-    input: {
+  },
+  input: {
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 5,
     padding: 10,
     marginTop: 10,
-    },
-    actions: {
+  },
+  actions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 20,
-    },
-    cancel: {
+  },
+  cancel: {
     color: 'red',
     fontWeight: 'bold',
-    },
-    confirm: {
+  },
+  confirm: {
     color: 'green',
     fontWeight: 'bold',
-    },
-    errorText: {
+  },
+  errorText: {
     color: '#e74c3c',
     fontSize: 13,
     marginTop: 10,
     textAlign: 'center',
-    },
-    successText: {
+  },
+  successText: {
     color: '#27ae60',
     fontSize: 13,
     marginTop: 10,
     textAlign: 'center',
     fontWeight: '600',
-    },
+  },
 });

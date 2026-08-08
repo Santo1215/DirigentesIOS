@@ -15,7 +15,7 @@ export default function CrearDiri({ navigation }) {
 
   const [form, setForm] = useState({
     nombre: '',
-    segundo_nombre:'',
+    segundo_nombre: '',
     apellido: '',
   });
   const [errorMsg, setErrorMsg] = useState('');
@@ -68,7 +68,7 @@ export default function CrearDiri({ navigation }) {
     <View style={styles.contendor}>
       <ScrollView contentContainerStyle={styles.container}>
         {/* Botón de volver simple */}
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   container: {
     padding: 20,
     paddingBottom: 40,
-    flex:1,
+    flex: 1,
   },
   // Botón de volver
   backButton: {

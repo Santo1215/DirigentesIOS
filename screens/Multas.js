@@ -9,7 +9,7 @@ import ModalAsignarMulta from '../components/ModalAsignarMulta';
 import ModalDetalleMultas from '../components/ModalDetalleMultas';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useContext } from 'react';
-import { UserContext } from '../context/UserContext'; 
+import { UserContext } from '../context/UserContext';
 import { useEffect, useState } from 'react';
 import { API_URL } from '../api';
 
@@ -44,14 +44,14 @@ export default function Multas({ navigation }) {
     acc[motivo] += monto;
     return acc;
   }, {});
-  
+
   const multasAgrupadas = Object.entries(multasPorMotivo).map(
     ([motivo, monto]) => ({
       motivo,
       monto,
     })
   );
-  
+
   const multasPorDirigente = dirigentes.reduce((acc, item) => {
     const id = item.id_dirigente;
 
@@ -73,7 +73,7 @@ export default function Multas({ navigation }) {
   // 🔥 FUNCIÓN PARA CARGAR DETALLE DE MULTAS
   const cargarMultasDirigente = async (dirigente) => {
     if (!dirigente?.id_dirigente) return;
-    
+
     setLoadingDetalle(true);
     try {
       const res = await fetch(`${API_URL}/multas/dirigente/${dirigente.id_dirigente}`, {
@@ -81,7 +81,7 @@ export default function Multas({ navigation }) {
           Authorization: `Bearer ${token}`
         }
       });
-      
+
       const data = await res.json();
       if (res.ok) {
         setMultasDirigente(data);
@@ -104,7 +104,7 @@ export default function Multas({ navigation }) {
 
   useEffect(() => {
     if (!user || !token || !user.dirigente) return;
-    
+
     const cargarMultas = async () => {
       try {
         const res = await fetch(`${API_URL}/multas/dirigente/${user.dirigente.id_dirigente}`, {
@@ -128,7 +128,7 @@ export default function Multas({ navigation }) {
             Authorization: `Bearer ${token}`
           }
         });
-        
+
         const data = await res.json();
         if (res.ok) setDirigentes(data);
       } catch (err) {
@@ -140,17 +140,17 @@ export default function Multas({ navigation }) {
       setLoading(false)
     );
   }, [user, token]);
-  
+
   return (
     <View style={styles.container}>
       <WaveBackground />
       <SectionTitle title="Multas" />
-      
+
       <ScrollView contentContainerStyle={styles.content}>
-        
+
         {/* ===== MULTAS ===== */}
         <TouchableOpacity onPress={() => cargarMultasDirigente(user.dirigente)}>
-          <TotalCard total={totalconFormato}/>
+          <TotalCard total={totalconFormato} />
         </TouchableOpacity>
 
         {multasAgrupadas.map((item, i) => (
@@ -167,31 +167,31 @@ export default function Multas({ navigation }) {
 
         {/* ===== DIRIGENTES ===== */}
         {rol === 'Coordinación' && (
-  <View>
-    <SectionTitle title="Dirigentes" />
+          <View>
+            <SectionTitle title="Dirigentes" />
 
-    {dirigentesAgrupados.map((d) => (
-      <TouchableOpacity
-        key={d.id_dirigente}
-        onPress={() => {
-          cargarMultasDirigente(d);
-        }}
-      >
-        <View style={styles.rowContainer}>
-          <Text>{d.nombre}</Text>
-          <Text>${d.total.toLocaleString()}</Text>
-        </View>
-      </TouchableOpacity>
-    ))}
+            {dirigentesAgrupados.map((d) => (
+              <TouchableOpacity
+                key={d.id_dirigente}
+                onPress={() => {
+                  cargarMultasDirigente(d);
+                }}
+              >
+                <View style={styles.rowContainer}>
+                  <Text>{d.nombre}</Text>
+                  <Text>${d.total.toLocaleString()}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
 
-        <TouchableOpacity
-          style={styles.manageBtn}
-          onPress={() => setModalVisible(true)}
-        >
-          <Text style={styles.manageText}>Gestionar multas</Text>
-        </TouchableOpacity>
-      </View>
-    )}  
+            <TouchableOpacity
+              style={styles.manageBtn}
+              onPress={() => setModalVisible(true)}
+            >
+              <Text style={styles.manageText}>Gestionar multas</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
 
       {/* MODAL DE DETALLE */}
@@ -209,13 +209,13 @@ export default function Multas({ navigation }) {
 
       <BottomNav navigation={navigation} />
 
-      
+
       <ModalAsignarMulta
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
         dirigentes={dirigentes}
         token={token}
-        onSuccess={() => { 
+        onSuccess={() => {
           setLoading(true);
           // Recargar datos después de asignar multa
           const cargarDatos = async () => {
@@ -228,7 +228,7 @@ export default function Multas({ navigation }) {
                   headers: { Authorization: `Bearer ${token}` }
                 })
               ]);
-              
+
               if (resMultas.ok) setResumen(await resMultas.json());
               if (resDirigentes.ok) setDirigentes(await resDirigentes.json());
             } catch (err) {
@@ -237,7 +237,7 @@ export default function Multas({ navigation }) {
               setLoading(false);
             }
           };
-          
+
           cargarDatos();
         }}
       />
@@ -246,9 +246,9 @@ export default function Multas({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#fff', 
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
     marginTop: 30
   },
   content: {

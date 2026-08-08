@@ -50,32 +50,32 @@ export default function Puntos({ navigation }) {
     setTribus(data);
   };
   const actualizarPuntosBD = async (idTribu, puntos) => {
-  try {
-    const res = await fetch(`${API_URL}/tribu/puntos`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        id_tribu: idTribu,
-        puntos,
-      }),
-    });
+    try {
+      const res = await fetch(`${API_URL}/tribu/puntos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id_tribu: idTribu,
+          puntos,
+        }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (!res.ok) {
-      alert(data.message || 'Error al actualizar puntos');
+      if (!res.ok) {
+        alert(data.message || 'Error al actualizar puntos');
+        return null;
+      }
+
+      return data.puntos;
+    } catch (error) {
+      console.error(error);
+      alert('Error de conexión');
       return null;
     }
-
-    return data.puntos;
-  } catch (error) {
-    console.error(error);
-    alert('Error de conexión');
-    return null;
-  }
-};
+  };
 
 
   return (
@@ -84,7 +84,7 @@ export default function Puntos({ navigation }) {
       <View style={styles.titleBox}>
         <Text style={styles.title}>Puntos</Text>
       </View>
-      
+
       {/* Selector cantidad - solo comité Puntos */}
       {canEdit && (
         <View style={styles.selector}>

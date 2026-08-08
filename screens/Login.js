@@ -171,73 +171,73 @@ function LoginContent({ navigation }) {
     }
   };
 
-const handleLogin = async () => {
-  setErrorMsg('');
-  if (!usuario || !contrasena) {
-    setErrorMsg('Completa todos los campos');
-    return;
-  }
-
-  try {
-    setCargando(true);
-    const res = await fetch(`${API_URL}/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        usuario: usuario.trim(),
-        contrasena: contrasena.trim(),
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setErrorMsg(data.message || 'Error al iniciar sesión');
+  const handleLogin = async () => {
+    setErrorMsg('');
+    if (!usuario || !contrasena) {
+      setErrorMsg('Completa todos los campos');
       return;
     }
 
-    await AsyncStorage.setItem('token', data.token);
-    setUser({ dirigente: data.dirigente });
-    registrarPushToken(data.token);
-
-    // Preguntar biometría ANTES de navegar, solo en móvil
-    if (Platform.OS !== 'web') {
-      const compatible = await LocalAuthentication.hasHardwareAsync();
-      const enrolled = await LocalAuthentication.isEnrolledAsync();
-      const yaGuardado = await SecureStore.getItemAsync('usuario');
-
-      if (compatible && enrolled && !yaGuardado) {
-        Alert.alert(
-          '¿Activar biometría?',
-          'La próxima vez podrás ingresar con huella o Face ID',
-          [
-            {
-              text: 'No',
-              style: 'cancel',
-              onPress: () => navigation.replace('Home'),
-            },
-            {
-              text: 'Sí, activar',
-              onPress: async () => {
-                await SecureStore.setItemAsync('usuario', usuario.trim());
-                await SecureStore.setItemAsync('contrasena', contrasena.trim());
-                setBiometriaDisponible(true);
-                setTieneCreds(true);
-                navigation.replace('Home');
-              },
-            },
-          ]
-        );
+    try {
+      setCargando(true);
+      const res = await fetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          usuario: usuario.trim(),
+          contrasena: contrasena.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorMsg(data.message || 'Error al iniciar sesión');
         return;
       }
+
+      await AsyncStorage.setItem('token', data.token);
+      setUser({ dirigente: data.dirigente });
+      registrarPushToken(data.token);
+
+      // Preguntar biometría ANTES de navegar, solo en móvil
+      if (Platform.OS !== 'web') {
+        const compatible = await LocalAuthentication.hasHardwareAsync();
+        const enrolled = await LocalAuthentication.isEnrolledAsync();
+        const yaGuardado = await SecureStore.getItemAsync('usuario');
+
+        if (compatible && enrolled && !yaGuardado) {
+          Alert.alert(
+            '¿Activar biometría?',
+            'La próxima vez podrás ingresar con huella o Face ID',
+            [
+              {
+                text: 'No',
+                style: 'cancel',
+                onPress: () => navigation.replace('Home'),
+              },
+              {
+                text: 'Sí, activar',
+                onPress: async () => {
+                  await SecureStore.setItemAsync('usuario', usuario.trim());
+                  await SecureStore.setItemAsync('contrasena', contrasena.trim());
+                  setBiometriaDisponible(true);
+                  setTieneCreds(true);
+                  navigation.replace('Home');
+                },
+              },
+            ]
+          );
+          return;
+        }
+      }
+
+      navigation.replace('Home');
+
+    } catch (error) {
+      setErrorMsg('Error de conexión');
+    } finally {
+      setCargando(false);
     }
-
-    navigation.replace('Home');
-
-  } catch (error) {
-    setErrorMsg('Error de conexión');
-  } finally {
-    setCargando(false);
-  }
-};
+  };
 
   return (
     <KeyboardAvoidingView

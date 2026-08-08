@@ -22,15 +22,15 @@ function Avatar({ foto }) {
     }
 
   }
-  
+
   return (
     <View style={styles.avatarContainer}>
-    <Image
-      source={{ uri }}
-      style={styles.avatar}
-      resizeMode="cover"
-      onError={() => console.log("Error cargando imagen")}
-    />
+      <Image
+        source={{ uri }}
+        style={styles.avatar}
+        resizeMode="cover"
+        onError={() => console.log("Error cargando imagen")}
+      />
     </View>
   );
 }

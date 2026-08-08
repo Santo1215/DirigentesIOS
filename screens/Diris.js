@@ -23,7 +23,7 @@ export default function Diris({ navigation }) {
   useEffect(() => {
     cargarDirigentes();
   }, []);
-  
+
 
   const cargarDirigentes = async () => {
     try {
@@ -39,24 +39,24 @@ export default function Diris({ navigation }) {
   };
 
   const renderItem = ({ item }) => (
-  <TouchableOpacity
-    style={styles.item}
-    onPress={() => {
-      setSelectedDirigente(item);
-      setModalVisible(true);
-    }}
-  >
-    {item.segundo_nombre !== null && (
-            <Text style={styles.nombre}>
-              {item.nombre} {item.segundo_nombre} {item.apellido}
-            </Text>)}
-            {item.segundo_nombre === null && (
-            <Text style={styles.nombre}>
-              {item.nombre} {item.apellido}
-            </Text>)}
-    <Text style={styles.rol}>{item.rol}</Text>
-  </TouchableOpacity>
-);
+    <TouchableOpacity
+      style={styles.item}
+      onPress={() => {
+        setSelectedDirigente(item);
+        setModalVisible(true);
+      }}
+    >
+      {item.segundo_nombre !== null && (
+        <Text style={styles.nombre}>
+          {item.nombre} {item.segundo_nombre} {item.apellido}
+        </Text>)}
+      {item.segundo_nombre === null && (
+        <Text style={styles.nombre}>
+          {item.nombre} {item.apellido}
+        </Text>)}
+      <Text style={styles.rol}>{item.rol}</Text>
+    </TouchableOpacity>
+  );
 
 
   return (
@@ -68,7 +68,7 @@ export default function Diris({ navigation }) {
         <Text style={styles.errorText}>{errorCarga}</Text>
       ) : null}
       <View style={styles.listContainer}>
-        
+
 
         {loading ? (
           <Text>Cargando...</Text>
@@ -79,12 +79,12 @@ export default function Diris({ navigation }) {
             renderItem={renderItem}
           />
         )}
-        <TouchableOpacity style={styles.btnAgregar} onPress={() =>  navigation.navigate('CrearDiri')}>
-            <Text style={styles.btnText}>Agregar dirigente</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.btnAgregar, {backgroundColor: '#FFD685'}]} onPress={() =>  navigation.navigate('AsistenciaDiris')}>
-            <Text style={styles.btnText}>Asistencia</Text>
-          </TouchableOpacity>
+        <TouchableOpacity style={styles.btnAgregar} onPress={() => navigation.navigate('CrearDiri')}>
+          <Text style={styles.btnText}>Agregar dirigente</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.btnAgregar, { backgroundColor: '#FFD685' }]} onPress={() => navigation.navigate('AsistenciaDiris')}>
+          <Text style={styles.btnText}>Asistencia</Text>
+        </TouchableOpacity>
       </View>
       {/* CARD ASISTENCIA */}
       <View style={styles.card}>
@@ -95,17 +95,17 @@ export default function Diris({ navigation }) {
             <Text style={styles.btnText}>Escanear QR</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.btnCodigo} onPress={()=> setCodigoVisible(true)}>
+          <TouchableOpacity style={styles.btnCodigo} onPress={() => setCodigoVisible(true)}>
             <Text style={styles.btnText}>Ingresar código</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      
+
       <DirigenteModal visible={modalVisible} dirigente={selectedDirigente}
-        onClose={() => setModalVisible(false)} onSaved={cargarDirigentes}/>
-      <QrScannerModal visible={qrVisible} onClose={() => setQrVisible(false) }  user={user}/>
-      <CodigoManualModal visible={codigoVisible} onClose={() => setCodigoVisible(false)} user={user}/>
+        onClose={() => setModalVisible(false)} onSaved={cargarDirigentes} />
+      <QrScannerModal visible={qrVisible} onClose={() => setQrVisible(false)} user={user} />
+      <CodigoManualModal visible={codigoVisible} onClose={() => setCodigoVisible(false)} user={user} />
       <BottomNav user={user} navigation={navigation} />
     </View>
   );
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    
+
   },
   btnAgregar: {
     backgroundColor: '#D3DBEE',
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     marginBottom: 5,
     justifyContent: 'center',
     alignItems: 'center',
-    
+
   },
   btnText: {
     textAlign: 'center',
@@ -159,35 +159,35 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   listContainer: {
-  marginHorizontal: 20,
-  marginTop: 5,
-  flex: 1,
-},
-listTitle: {
-  fontSize: 18,
-  fontWeight: 'bold',
-  marginBottom: 10,
-},
-item: {
-  backgroundColor: '#e0e0e0',
-  padding: 15,
-  borderRadius: 20,
-  marginBottom: 10,
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-},
-nombre: {
-  fontWeight: 'bold',
-},
-rol: {
-  color: '#555',
-},
-errorText: {
-  color: '#c0392b',
-  fontSize: 13,
-  marginHorizontal: 20,
-  marginBottom: 8,
-  textAlign: 'center',
-},
+    marginHorizontal: 20,
+    marginTop: 5,
+    flex: 1,
+  },
+  listTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  item: {
+    backgroundColor: '#e0e0e0',
+    padding: 15,
+    borderRadius: 20,
+    marginBottom: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  nombre: {
+    fontWeight: 'bold',
+  },
+  rol: {
+    color: '#555',
+  },
+  errorText: {
+    color: '#c0392b',
+    fontSize: 13,
+    marginHorizontal: 20,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
 
 });

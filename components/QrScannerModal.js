@@ -55,7 +55,7 @@ export default function QrScannerModal({ visible, onClose, user }) {
           if (!scannerStarted.current) return;
           onScan({ data: decodedText });
         },
-        () => {}
+        () => { }
       );
       scannerStarted.current = true;
     } catch (err) {
@@ -68,7 +68,7 @@ export default function QrScannerModal({ visible, onClose, user }) {
     try {
       await html5QrRef.current.stop();
       html5QrRef.current.clear();
-    } catch (_) {}
+    } catch (_) { }
     scannerStarted.current = false;
     setScanned(false);
   };
