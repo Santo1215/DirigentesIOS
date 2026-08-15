@@ -10,6 +10,7 @@ import { UserContext } from '../context/UserContext';
 import SectionTitle from '../components/TituloSeccion';
 import WaveBackground from '../components/WaveBackground';
 import { API_URL } from '../api';
+import ModalProximamente from '../components/ModalProximamente';
 
 let DateTimePicker = null;
 if (Platform.OS !== 'web') {
@@ -118,7 +119,7 @@ function DateField({ label, value, onChange }) {
 export default function AsistenciaMenu({ navigation }) {
   const { user, setUser } = useContext(UserContext);
   const [token, setToken] = useState(null);
-
+  const [modalProximamenteVisible, setModalProximamenteVisible] = useState(false);
   /* Notificación */
   const [enviandoNotif, setEnviandoNotif] = useState(false);
   const [notifModal, setNotifModal] = useState(false);
@@ -207,7 +208,7 @@ export default function AsistenciaMenu({ navigation }) {
       <View style={styles.contentWrapper}>
         <MenuItem label="Asistencia" onPress={() => navigation.navigate('AsistenciaTribus')} />
         <MenuItem label="Reporte" onPress={() => setReporteModal(true)} />
-        <MenuItem label="Buscar" proximamente />
+        <MenuItem label="Buscar" proximamente={true} onOpenProximamente={() => setModalProximamenteVisible(true)} />
         <MenuItem label="Enviar Recordatorio" onPress={() => setNotifModal(true)} />
       </View>
 
@@ -314,18 +315,22 @@ export default function AsistenciaMenu({ navigation }) {
           </View>
         </View>
       </Modal>
+
+      <ModalProximamente 
+              visible={modalProximamenteVisible} 
+              onClose={() => setModalProximamenteVisible(false)} 
+            />  
+
     </View>
   );
 }
 
 /* ─── MenuItem ──────────────────────────────────────────────── */
-function MenuItem({ label, onPress, proximamente }) {
+function MenuItem({ label, onPress, proximamente, onOpenProximamente }) {
   return (
     <TouchableOpacity
       style={styles.item}
-      onPress={onPress}
-      disabled={proximamente}
-      activeOpacity={proximamente ? 1 : 0.7}
+      onPress={proximamente ? onOpenProximamente : onPress}
     >
       <Text style={styles.itemText}>{label}</Text>
       {proximamente && (
@@ -336,6 +341,8 @@ function MenuItem({ label, onPress, proximamente }) {
     </TouchableOpacity>
   );
 }
+
+
 
 /* ─── Styles ────────────────────────────────────────────────── */
 const styles = StyleSheet.create({

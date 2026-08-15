@@ -5,6 +5,7 @@ import BottomNav from '../components/navbar';
 import { UserContext } from '../context/UserContext';
 import SectionTitle from '../components/TituloSeccion';
 import WaveBackground from '../components/WaveBackground';
+import ModalProximamente from '../components/ModalProximamente';
 import { API_URL } from '../api';
 import { CommonActions } from '@react-navigation/native';
 import { Linking } from 'react-native';
@@ -12,12 +13,14 @@ import { Linking } from 'react-native';
 
 export default function Menu({ navigation }) {
   const { user, setUser } = useContext(UserContext);
+  const {rol, comite} = user.dirigente;
   const [modalPassVisible, setModalPassVisible] = useState(false);
   const [contrasenaActual, setContrasenaActual] = useState('');
   const [contrasenaNueva, setContrasenaNueva] = useState('');
   const [contrasenaConfirmar, setContrasenaConfirmar] = useState('');
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [modalProximamenteVisible, setModalProximamenteVisible] = useState(false);
 
   const actualizarContrasena = async () => {
     setErrorMsg('');
@@ -98,15 +101,16 @@ export default function Menu({ navigation }) {
         <SectionTitle title="Menú" />
 
         <View style={styles.grid}>
+          <MenuItem icon="calendar-outline" label="Calendario" onPress={() => navigation.navigate('Calendario')} />
+           {(rol === 'Coordinación' || rol === 'Nombrado') && (
+          <MenuItem icon="trophy-outline" label="Calificación Asambleas" proximamente={true} onOpenProximamente={() => setModalProximamenteVisible(true)}/>
+           )}
           <MenuItem icon="document-text-outline" label="Actas" onPress={() => Linking.openURL('https://drive.google.com/drive/folders/1lzrdK3J9b7JVNWCG8GT0Njuz2-LogfOB')} />
-          <MenuItem icon="calendar-outline" label="Cronogramas" onPress={() => { }} />
+          
           <MenuItem icon="time-outline" label="Asambleas" onPress={() => Linking.openURL('https://drive.google.com/drive/folders/17cBGA5hulhUl53DNrEYgMAtbbtq-AGpW')} />
           <MenuItem icon="folder-open-outline" label="Carpeta General" onPress={() => Linking.openURL('https://drive.google.com/drive/folders/1xU_t1-8voZRPcwhQWz5_U38-D7liQzD-?usp=sharing')} />
-          <MenuItem
-            icon="lock-closed-outline"
-            label="Contraseña"
-            onPress={() => setModalPassVisible(true)}
-          />
+          
+          <MenuItem icon="lock-closed-outline" label="Contraseña" onPress={() => setModalPassVisible(true)}/>
         </View>
 
         <TouchableOpacity style={styles.logoutBtn} onPress={cerrarSesion}>
@@ -201,15 +205,21 @@ export default function Menu({ navigation }) {
         </TouchableWithoutFeedback>
       </Modal>
 
-
+       <ModalProximamente 
+        visible={modalProximamenteVisible} 
+        onClose={() => setModalProximamenteVisible(false)} 
+      />         
       <BottomNav navigation={navigation} />
     </View>
   );
 }
 
-function MenuItem({ icon, label, onPress }) {
+function MenuItem({ icon, label, onPress, proximamente, onOpenProximamente }) {
   return (
-    <TouchableOpacity style={styles.item} onPress={onPress}>
+    <TouchableOpacity 
+      style={styles.item} 
+      onPress={proximamente ? onOpenProximamente : onPress}
+    >
       <Ionicons name={icon} size={28} color="#222" />
       <Text style={styles.itemText}>{label}</Text>
     </TouchableOpacity>

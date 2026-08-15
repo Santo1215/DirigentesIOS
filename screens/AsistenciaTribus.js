@@ -4,9 +4,11 @@ import {
   StyleSheet, TouchableOpacity, Modal, Platform, Alert
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '../api';
 import BottomNav from '../components/navbar';
 import WaveBackground from '../components/WaveBackground';
+import SectionTitle from '../components/TituloSeccion';
 
 let DateTimePicker = null;
 if (Platform.OS !== 'web') {
@@ -26,15 +28,13 @@ const parseFechaLocal = (fechaStr) => {
   return new Date(y, m - 1, d);
 };
 
-export default function AsistenciaTribusScreen({ navigation }) {
+export default function AsistenciaTribusScreen({ navigation}) {
   const [fecha, setFecha] = useState(getFechaLocal());
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mostrarPicker, setMostrarPicker] = useState(false);
   const [token, setToken] = useState(null);
   const [confirmModal, setConfirmModal] = useState({ visible: false, tipo: null });
-  
-
 
   useEffect(() => {
     AsyncStorage.getItem('token').then(setToken);
@@ -44,15 +44,22 @@ export default function AsistenciaTribusScreen({ navigation }) {
     if (token) cargarAsistencia();
   }, [fecha, token]);
 
-  /* ===============================
-     Helpers
-  =============================== */
+  const cambiarDia = (dias) => {
+    const fechaActual = parseFechaLocal(fecha);
+    fechaActual.setDate(fechaActual.getDate() + dias);
+    
+    const y = fechaActual.getFullYear();
+    const m = String(fechaActual.getMonth() + 1).padStart(2, '0');
+    const d = String(fechaActual.getDate()).padStart(2, '0');
+    
+    const nuevaFechaStr = `${y}-${m}-${d}`;
+    const hoyStr = getFechaLocal();
 
-  const estadoColor = (estado) => {
-    if (estado === 'Presente') return '#4CAF50';
-    if (estado === 'Ausente') return '#F44336';
-    return '#F44336';
+    if (nuevaFechaStr <= hoyStr) {
+      setFecha(nuevaFechaStr);
+    }
   };
+
   const TRIBU_COLORS = {
     Judá: { bg: '#57B9FF', text: 'black' },
     Levi: { bg: '#ED2100', text: 'black' },
@@ -72,11 +79,6 @@ export default function AsistenciaTribusScreen({ navigation }) {
     return TRIBU_COLORS[tribu] || { bg: '#EEEEEE', text: '#333' };
   };
 
-
-  /* ===============================
-     Backend
-  =============================== */
-
   const cargarAsistencia = async () => {
     setLoading(true);
     try {
@@ -87,7 +89,6 @@ export default function AsistenciaTribusScreen({ navigation }) {
 
       const json = await res.json();
 
-      // Agrupar por tribu → SectionList
       const agrupado = {};
       json.forEach(item => {
         if (!agrupado[item.tribu]) agrupado[item.tribu] = [];
@@ -104,19 +105,11 @@ export default function AsistenciaTribusScreen({ navigation }) {
       setLoading(false);
     }
   };
-  // ===============================
-  // Stats globales
-  // ===============================
 
   const todos = sections.flatMap(s => s.data);
-
   const presentes = todos.filter(e => e.estado === 'Presente').length;
   const ausentes = todos.filter(e => e.estado !== 'Presente').length;
   const total = todos.length > 0 ? ((presentes / todos.length) * 100).toFixed(1) : 0;
-
-  /* ===============================
-     Eliminar asistencia
-  =============================== */
 
   const eliminarAsistencia = async (tipo) => {
     const endpoint = tipo === 'exoditos'
@@ -132,37 +125,22 @@ export default function AsistenciaTribusScreen({ navigation }) {
       const json = await res.json();
 
       if (!res.ok) {
-        if (Platform.OS === 'web') {
-          alert(json.error || 'Error al eliminar');
-        } else {
-          Alert.alert('Error', json.error || 'Error al eliminar');
-        }
+        if (Platform.OS === 'web') alert(json.error || 'Error al eliminar');
+        else Alert.alert('Error', json.error || 'Error al eliminar');
         return;
       }
 
       const msg = `${json.mensaje} (${json.eliminados} registros)`;
-      if (Platform.OS === 'web') {
-        alert(msg);
-      } else {
-        Alert.alert('Éxito', msg);
-      }
+      if (Platform.OS === 'web') alert(msg);
+      else Alert.alert('Éxito', msg);
 
       cargarAsistencia();
     } catch (err) {
       const errorMsg = 'Error de conexión al eliminar';
-      if (Platform.OS === 'web') {
-        alert(errorMsg);
-      } else {
-        Alert.alert('Error', errorMsg);
-      }
+      if (Platform.OS === 'web') alert(errorMsg);
+      else Alert.alert('Error', errorMsg);
     }
   };
-
- 
-
-  /* ===============================
-     Loading
-  =============================== */
 
   if (loading) {
     return (
@@ -173,33 +151,41 @@ export default function AsistenciaTribusScreen({ navigation }) {
     );
   }
 
-  /* ===============================
-     UI
-  =============================== */
-
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton} 
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
-        <View style={styles.headerTextContainer}>
-          <Text style={styles.title}>Asistencia por tribu</Text>
-          <Text style={styles.date}>{fecha}</Text>
-
-          <TouchableOpacity onPress={() => setMostrarPicker(true)}>
-            <Text style={{ color: '#fff', marginTop: 5 }}>
-              Cambiar fecha
-            </Text>
-          </TouchableOpacity>
-        </View>
+      {/* Componente SectionTitle reutilizable con botón de retroceso opcional */}
+      <View style={{ marginTop: Platform.OS === 'ios' ? 40 : 15 }}>
+        <SectionTitle 
+          title="Asistencia por Tribu" 
+          showBackButton={true} 
+          onBackPress={() => navigation.goBack()} 
+        />
       </View>
 
-      {/* Botones: eliminar*/}
+      {/* Barra interactiva de selección de fecha */}
+      <View style={styles.dateBarContainer}>
+        <TouchableOpacity style={styles.dateArrowBtn} onPress={() => cambiarDia(-1)}>
+          <Ionicons name="chevron-back" size={20} color="#333" />
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.dateDisplayBtn} 
+          onPress={() => setMostrarPicker(true)}
+        >
+          <Ionicons name="calendar-outline" size={16} color="#FFA726" style={{ marginRight: 6 }} />
+          <Text style={styles.dateText}>{fecha}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.dateArrowBtn, fecha >= getFechaLocal() && { opacity: 0.4 }]} 
+          onPress={() => cambiarDia(1)}
+          disabled={fecha >= getFechaLocal()}
+        >
+          <Ionicons name="chevron-forward" size={20} color="#333" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Botón eliminar */}
       <View style={styles.deleteButtonsRow}>
         <TouchableOpacity
           style={styles.deleteBtn}
@@ -207,7 +193,6 @@ export default function AsistenciaTribusScreen({ navigation }) {
         >
           <Text style={styles.deleteBtnText}>Eliminar asist. exoditos</Text>
         </TouchableOpacity>
-
       </View>
 
       {/* Stats */}
@@ -217,9 +202,7 @@ export default function AsistenciaTribusScreen({ navigation }) {
           <Text style={styles.statLabel}>Presentes</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={[styles.statNumber, styles.absentNumber]}>
-            {ausentes}
-          </Text>
+          <Text style={[styles.statNumber, styles.absentNumber]}>{ausentes}</Text>
           <Text style={styles.statLabel}>Ausentes</Text>
         </View>
         <View style={styles.statCard}>
@@ -236,68 +219,47 @@ export default function AsistenciaTribusScreen({ navigation }) {
         contentContainerStyle={{ paddingBottom: 80 }}
         renderSectionHeader={({ section }) => {
           const { bg, text } = getTribuColors(section.title);
-
-          const presentes = section.data.filter(e => e.estado === 'Presente').length;
-          const ausentes = section.data.filter(e => e.estado !== 'Presente').length;
-          const total = section.data.length > 0 ? ((presentes / section.data.length) * 100).toFixed(1) : 0;
+          const pSec = section.data.filter(e => e.estado === 'Presente').length;
+          const aSec = section.data.filter(e => e.estado !== 'Presente').length;
+          const tSec = section.data.length > 0 ? ((pSec / section.data.length) * 100).toFixed(1) : 0;
 
           return (
-            <View style={[
-              styles.tribuHeader,
-              { backgroundColor: bg }
-            ]}>
-              <Text style={[
-                styles.tribuTitle,
-                { color: text }
-              ]}>
-                {section.title}
-              </Text>
-
+            <View style={[styles.tribuHeader, { backgroundColor: bg }]}>
+              <Text style={[styles.tribuTitle, { color: text }]}>{section.title}</Text>
               <View style={styles.tribuStats}>
-                <Text style={[styles.tribuStat, { color: text }]}>Presentes: {presentes}</Text>
-                <Text style={[styles.tribuStat, { color: text }]}>Ausentes: {ausentes}</Text>
-                <Text style={[styles.tribuStat, { color: text }]}>Total: {total}%</Text>
+                <Text style={[styles.tribuStat, { color: text }]}>Presentes: {pSec}</Text>
+                <Text style={[styles.tribuStat, { color: text }]}>Ausentes: {aSec}</Text>
+                <Text style={[styles.tribuStat, { color: text }]}>Total: {tSec}%</Text>
               </View>
             </View>
           );
         }}
-
-
         renderItem={({ item }) => (
-        <View style={[
-          styles.card,
-          item.estado === 'Presente' ? styles.cardPresent : styles.cardAbsent
-        ]}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            
-            {/* Lado izquierdo: Nombre y Estado */}
-            <View style={{ flex: 1, alignItems: 'flex-start', paddingRight: 10 }}>
-              <Text style={styles.name}>
-                {item.nombre} {item.apellido}
-              </Text>
-              
-              <View style={[
-                styles.statusBadge,
-                { backgroundColor: item.estado === 'Presente' ? '#4CAF50' : '#F44336', marginTop: 8 }
-              ]}>
-                <Text style={{ color: '#fff', fontWeight: 'bold' }}>
-                  {item.estado === 'Presente' ? 'PRESENTE' : 'AUSENTE'}
-                </Text>
+          <View style={[
+            styles.card,
+            item.estado === 'Presente' ? styles.cardPresent : styles.cardAbsent
+          ]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View style={{ flex: 1, alignItems: 'flex-start', paddingRight: 10 }}>
+                <Text style={styles.name}>{item.nombre} {item.apellido}</Text>
+                <View style={[
+                  styles.statusBadge,
+                  { backgroundColor: item.estado === 'Presente' ? '#4CAF50' : '#F44336', marginTop: 8 }
+                ]}>
+                  <Text style={{ color: '#fff', fontWeight: 'bold' }}>
+                    {item.estado === 'Presente' ? 'PRESENTE' : 'AUSENTE'}
+                  </Text>
+                </View>
               </View>
+              {item.cargo ? (
+                <View>
+                  <Text style={styles.role}>{item.cargo}</Text>
+                </View>
+              ) : null}
             </View>
-
-            {/* Lado derecho: Cargo */}
-            {item.cargo ? (
-              <View>
-                <Text style={styles.role}>
-                  {item.cargo}
-                </Text>
-              </View>
-            ) : null}
-
           </View>
-        </View>
-      )}/>
+        )}
+      />
 
       {mostrarPicker && Platform.OS !== 'web' && DateTimePicker && (
         <DateTimePicker
@@ -337,6 +299,7 @@ export default function AsistenciaTribusScreen({ navigation }) {
           </View>
         </Modal>
       )}
+
       {/* Modal confirmación eliminar */}
       <Modal transparent animationType="fade" visible={confirmModal.visible} onRequestClose={() => setConfirmModal({ visible: false, tipo: null })}>
         <View style={styles.modalOverlay}>
@@ -373,7 +336,7 @@ export default function AsistenciaTribusScreen({ navigation }) {
   );
 }
 
-const styles = {
+const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
@@ -384,53 +347,42 @@ const styles = {
     alignItems: 'center',
     padding: 20,
   },
-  header: {
-    backgroundColor: '#FFA726',
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+  dateBarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  headerTextContainer: {
-    flex: 1,
-    marginTop: 20,
-  },
-  backButton: {
-    marginRight: 15,
-    padding: 5,
     justifyContent: 'center',
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderRadius: 15,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  dateArrowBtn: {
+    padding: 6,
+  },
+  dateDisplayBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 15,
   },
-  backIcon: {
-    fontSize: 32,
-    color: '#fff',
+  dateText: {
+    fontSize: 15,
+    color: '#333',
     fontWeight: 'bold',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  date: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginTop: 4,
   },
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    padding: 20,
+    padding: 16,
     backgroundColor: '#fff',
     marginHorizontal: 16,
-    marginTop: -10,
+    marginTop: 5,
     borderRadius: 15,
     elevation: 3,
     shadowColor: '#000',
@@ -442,7 +394,7 @@ const styles = {
     alignItems: 'center',
   },
   statNumber: {
-    fontSize: 32,
+    fontSize: 26,
     fontWeight: 'bold',
     color: '#4CAF50',
   },
@@ -450,72 +402,45 @@ const styles = {
     color: '#F44336',
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#666',
-    marginTop: 4,
+    marginTop: 2,
   },
   card: {
     backgroundColor: '#fff',
     marginHorizontal: 16,
-    marginVertical: 8,
-    padding: 16,
+    marginVertical: 6,
+    padding: 14,
     borderRadius: 12,
     elevation: 2,
   },
   cardPresent: {
-    borderLeftWidth: 10,
+    borderLeftWidth: 8,
     borderLeftColor: '#4CAF50',
   },
   cardAbsent: {
-    borderLeftWidth: 5,
+    borderLeftWidth: 8,
     borderLeftColor: '#F44336',
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
   name: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: '#333',
     flex: 1,
   },
   role: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#666',
     backgroundColor: '#f0f0f0',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  presentContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  absentContainer: {
-    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
   statusBadge: {
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 18,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    borderRadius: 15,
   },
-  absentBadge: {
-    backgroundColor: '#FFEBEE',
-    marginBottom: 12,
-  },
-  statusText: {
-    color: '#2E7D32',
-    fontWeight: '500',
-  },
-  absentText: {
-    color: '#C62828',
-    fontWeight: '500',
-  }, 
   loadingText: {
     fontSize: 16,
     color: '#666',
@@ -524,69 +449,43 @@ const styles = {
   },
   tribuHeader: {
     marginHorizontal: 16,
-    marginTop: 24,
-    marginBottom: 12,
-    padding: 16,
-    borderRadius: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-
-  tribuTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    marginTop: 20,
     marginBottom: 10,
+    padding: 14,
+    borderRadius: 16,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
   },
-
+  tribuTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 6,
+  },
   tribuStats: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-
   tribuStat: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-  },
-
-  tribuStatPresentes: {
-    color: '#4CAF50',
-    fontWeight: 'bold',
-  },
-
-  tribuStatAusentes: {
-    color: '#F44336',
-    fontWeight: 'bold',
-  },
-
-  tribuStatTotal: {
-    color: '#555',
-    fontWeight: 'bold',
   },
   deleteButtonsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    marginTop: 12,
-    gap: 10,
+    marginTop: 8,
   },
   deleteBtn: {
     flex: 1,
     backgroundColor: '#F44336',
-    paddingVertical: 10,
+    paddingVertical: 8,
     paddingHorizontal: 8,
-    borderRadius: 12,
+    borderRadius: 10,
     alignItems: 'center',
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-  },
-  deleteBtnDirigentes: {
-    backgroundColor: '#FF7043',
   },
   deleteBtnText: {
     color: '#fff',
@@ -607,5 +506,4 @@ const styles = {
     width: '80%',
     alignItems: 'center',
   },
-
-}
+});

@@ -5,14 +5,18 @@ import BottomNav from '../components/navbar';
 import { API_URL } from '../api';
 import WaveBackground from '../components/WaveBackground';
 import { UserContext } from '../context/UserContext';
+import ModalProximamente from '../components/ModalProximamente';
 
 export default function Puntos({ navigation }) {
   const { user } = useContext(UserContext);
   const [tribus, setTribus] = useState([]);
   const [cantidad, setCantidad] = useState(5);
+  const [modalProximamenteVisible, setModalProximamenteVisible] = useState(false);
+  
   if (!user) return null;
   const { rol, comite, id_dirigente } = user.dirigente;
-  const canEdit = comite === 'Puntos' || id_dirigente === 1;
+  const canEdit = comite === 'Puntos';
+  
 
   const sumarPuntos = async (idTribu) => {
     const puntosFinales = await actualizarPuntosBD(idTribu, cantidad);
@@ -110,7 +114,18 @@ export default function Puntos({ navigation }) {
           />
         ))}
       </ScrollView>
+      {comite != 'Puntos' && (
+      <View style={styles.contenedorsugerir}>
+                <TouchableOpacity onPress={() => setModalProximamenteVisible(true)}>
+                  <Text style={styles.sugerir}>Sugerir Puntos</Text>
+                </TouchableOpacity>
+        </View>
+      )}
 
+        <ModalProximamente 
+        visible={modalProximamenteVisible} 
+        onClose={() => setModalProximamenteVisible(false)} 
+      />  
       <BottomNav navigation={navigation} />
     </View>
   );
@@ -151,9 +166,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-
   grid: {
     padding: 20,
     paddingBottom: 100,
+  },
+  contenedorsugerir: {
+    flexDirection: 'row',
+    alignSelf: 'center',
+    marginTop:2,
+    marginBottom: 2,
+  },
+  sugerir: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginHorizontal: 20,
+    backgroundColor: '#22335D',
+    padding: 10,
+    paddingHorizontal: 30,
+    borderRadius: 50,
   },
 });

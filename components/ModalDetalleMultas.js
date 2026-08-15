@@ -64,6 +64,23 @@ export default function ModalDetalleMultas({ visible, dirigente, token, onClose 
     }
   };
 
+  const formatearFecha = (fechaCruda) => {
+    if (!fechaCruda) return '';
+    
+    const partes = fechaCruda.split('T')[0].split('-'); 
+    
+    const meses = [
+      'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 
+      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+    ];
+    
+    const dia = parseInt(partes[2], 10); 
+    const mes = meses[parseInt(partes[1], 10) - 1]; 
+    const año = partes[0];
+    
+    return `${dia} de ${mes} de ${año}`;
+  };
+  
   return (
     <Modal visible={visible} transparent animationType="slide">
       <View style={styles.overlay}>
@@ -86,6 +103,9 @@ export default function ModalDetalleMultas({ visible, dirigente, token, onClose 
                     <Text style={styles.motivo}>{item.motivo}</Text>
                     <Text style={styles.fecha}>
                       ${Number(item.monto).toLocaleString()}
+                    </Text>
+                    <Text style={styles.fecha}>
+                      Fecha: {formatearFecha(item.fecha)}
                     </Text>
                     {item.detalle ? (
                       <Text style={styles.detalle}>{item.detalle}</Text>

@@ -29,6 +29,7 @@ import Puntos from './screens/Puntos';
 import AsistenciaTribus from './screens/AsistenciaTribus';
 import AsistenciaDiris from './screens/AsistenciaDiris';
 import AsistenciaMenu from './screens/AsistenciaMenu';
+import Calendario from './screens/Calendario';
 
 const Stack = createNativeStackNavigator();
 
@@ -48,7 +49,8 @@ export default function App() {
           <Stack.Screen name="Puntos" component={Puntos} />
           <Stack.Screen name="AsistenciaTribus" component={AsistenciaTribus} />
           <Stack.Screen name="AsistenciaDiris" component={AsistenciaDiris} />
-          <Stack.Screen name="AsistenciaMenu" component={AsistenciaMenu}/>
+          <Stack.Screen name="AsistenciaMenu" component={AsistenciaMenu} />
+          <Stack.Screen name="Calendario" component={Calendario} />
         </Stack.Navigator>
       </NavigationContainer>
     </UserContext.Provider>
