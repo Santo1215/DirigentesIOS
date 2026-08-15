@@ -30,6 +30,7 @@ import AsistenciaTribus from './screens/AsistenciaTribus';
 import AsistenciaDiris from './screens/AsistenciaDiris';
 import AsistenciaMenu from './screens/AsistenciaMenu';
 import Calendario from './screens/Calendario';
+import Material from './screens/Material';
 
 const Stack = createNativeStackNavigator();
 
@@ -51,6 +52,7 @@ export default function App() {
           <Stack.Screen name="AsistenciaDiris" component={AsistenciaDiris} />
           <Stack.Screen name="AsistenciaMenu" component={AsistenciaMenu} />
           <Stack.Screen name="Calendario" component={Calendario} />
+          <Stack.Screen name="Material" component={Material} />
         </Stack.Navigator>
       </NavigationContainer>
     </UserContext.Provider>

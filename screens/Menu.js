@@ -103,8 +103,9 @@ export default function Menu({ navigation }) {
         <View style={styles.grid}>
           <MenuItem icon="calendar-outline" label="Calendario" onPress={() => navigation.navigate('Calendario')} />
            {(rol === 'Coordinación' || rol === 'Nombrado') && (
-          <MenuItem icon="trophy-outline" label="Calificación Asambleas" proximamente={true} onOpenProximamente={() => setModalProximamenteVisible(true)}/>
+          <MenuItem icon="ribbon-outline" label="Calificación Asambleas" proximamente={true} onOpenProximamente={() => setModalProximamenteVisible(true)}/>
            )}
+           <MenuItem icon="dice-outline" label="Material"  onPress={() => navigation.navigate('Material')}/>
           <MenuItem icon="document-text-outline" label="Actas" onPress={() => Linking.openURL('https://drive.google.com/drive/folders/1lzrdK3J9b7JVNWCG8GT0Njuz2-LogfOB')} />
           
           <MenuItem icon="time-outline" label="Asambleas" onPress={() => Linking.openURL('https://drive.google.com/drive/folders/17cBGA5hulhUl53DNrEYgMAtbbtq-AGpW')} />

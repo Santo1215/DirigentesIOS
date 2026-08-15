@@ -1,19 +1,20 @@
 import { useEffect, useState } from 'react';
 import {
-  View, Text, FlatList, Button, ActivityIndicator,
-  StyleSheet, TouchableOpacity, Platform, TextInput, Modal, Alert
+  View, Text, FlatList, ActivityIndicator,
+  StyleSheet, TouchableOpacity, Platform, Modal, Alert
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../api';
 import QrScannerModal from '../components/QrScannerModal';
 import CodigoManualModal from '../components/CodigoManualModal';
+import SectionTitle from '../components/TituloSeccion';
+import { Ionicons } from '@expo/vector-icons';
 
 // DateTimePicker solo en móvil
 let DateTimePicker = null;
 if (Platform.OS !== 'web') {
   DateTimePicker = require('@react-native-community/datetimepicker').default;
 }
-
 
 // Devuelve fecha local Colombia (UTC-5) como "YYYY-MM-DD"
 const getFechaLocal = () => {
@@ -37,8 +38,6 @@ export default function AsistenciaScreen({ navigation }) {
   const [dirigenteSeleccionado, setDirigenteSeleccionado] = useState(null);
   const [mostrarPicker, setMostrarPicker] = useState(false);
 
-
-
   const [token, setToken] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
   const [accionModal, setAccionModal] = useState(false); // modal elegir QR o código
@@ -59,13 +58,29 @@ export default function AsistenciaScreen({ navigation }) {
   }, [fecha, token]);
 
   /* ===============================
-      Helpers visuales
+      Helpers visuales & Fecha
   =============================== */
 
   const estadoColor = (estado) => {
     if (estado === 'Presente') return '#4CAF50';
     if (estado === 'Tarde') return '#FF9800';
     return '#F44336';
+  };
+
+  const cambiarDia = (dias) => {
+    const fechaActual = parseFechaLocal(fecha);
+    fechaActual.setDate(fechaActual.getDate() + dias);
+    
+    const y = fechaActual.getFullYear();
+    const m = String(fechaActual.getMonth() + 1).padStart(2, '0');
+    const d = String(fechaActual.getDate()).padStart(2, '0');
+    
+    const nuevaFechaStr = `${y}-${m}-${d}`;
+    const hoyStr = getFechaLocal();
+
+    if (nuevaFechaStr <= hoyStr) {
+      setFecha(nuevaFechaStr);
+    }
   };
 
   /* ===============================
@@ -85,26 +100,18 @@ export default function AsistenciaScreen({ navigation }) {
       const json = await res.json();
 
       if (!res.ok) {
-        if (Platform.OS === 'web') {
-          alert(json.error || 'Error al eliminar');
-        } else {
-          Alert.alert('Error', json.error || 'Error al eliminar');
-        }
+        if (Platform.OS === 'web') alert(json.error || 'Error al eliminar');
+        else Alert.alert('Error', json.error || 'Error al eliminar');
         return;
       }
 
       const msg = `${json.mensaje} (${json.eliminados} registros)`;
-      if (Platform.OS === 'web') {
-        alert(msg);
-      } else {
-        Alert.alert('Éxito', msg);
-      }
+      if (Platform.OS === 'web') alert(msg);
+      else Alert.alert('Éxito', msg);
     } catch (err) {
-      if (Platform.OS === 'web') {
-        alert('Error de conexión');
-      } else {
-        Alert.alert('Error', 'Error de conexión');
-      }
+      const errorMsg = 'Error de conexión';
+      if (Platform.OS === 'web') alert(errorMsg);
+      else Alert.alert('Error', errorMsg);
     } finally {
       setConfirmModal({ visible: false, tipo: null });
       cargarAsistencia();
@@ -115,9 +122,7 @@ export default function AsistenciaScreen({ navigation }) {
     setLoading(true);
     try {
       const res = await fetch(`${API_URL}/asistencia/fecha/${fecha}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       const json = await res.json();
@@ -143,36 +148,26 @@ export default function AsistenciaScreen({ navigation }) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          id_dirigente,
-          fecha,
-          estado,
-        }),
+        body: JSON.stringify({ id_dirigente, fecha, estado }),
       });
-
       cargarAsistencia();
     } catch {
       showToast('No se pudo actualizar asistencia');
     }
   };
+
   const onPressDirigente = (item) => {
     setDirigenteSeleccionado(item);
-
-    // AUSENTE → elegir método
     if (!item.estado) {
       setAccionModal(true);
       return;
     }
-
-    // YA REGISTRADO → editar
     setEditarModal(true);
   };
-
 
   /* ===============================
      Loading
   =============================== */
-
   if (loading) {
     return (
       <View style={styles.centerContainer}>
@@ -185,29 +180,42 @@ export default function AsistenciaScreen({ navigation }) {
   /* ===============================
      UI
   =============================== */
-
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Asistencia</Text>
-          <Text style={styles.date}>{fecha}</Text>
-          <TouchableOpacity onPress={() => setMostrarPicker(true)}>
-            <Text style={{ color: '#fff', marginTop: 5 }}>
-              Cambiar fecha
-            </Text>
-          </TouchableOpacity>
-
-        </View>
+      <View style={{ marginTop: Platform.OS === 'ios' ? 40 : 15 }}>
+        <SectionTitle 
+          title="Asistencia" 
+          showBackButton={true} 
+          onBackPress={() => navigation.goBack()} 
+        />
       </View>
       
-      <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Text style={styles.backIcon}>←</Text>
-      </TouchableOpacity>
+      <View style={styles.dateBarContainer}>
+        <TouchableOpacity style={styles.dateArrowBtn} onPress={() => cambiarDia(-1)}>
+          <Ionicons name="chevron-back" size={20} color="#333" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.dateDisplayBtn} onPress={() => setMostrarPicker(true)}>
+          <Ionicons name="calendar-outline" size={16} color="#FFA726" style={{ marginRight: 6 }} />
+          <Text style={styles.dateText}>{fecha}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.dateArrowBtn, fecha >= getFechaLocal() && { opacity: 0.4 }]} 
+          onPress={() => cambiarDia(1)}
+          disabled={fecha >= getFechaLocal()}
+        >
+          <Ionicons name="chevron-forward" size={20} color="#333" />
+        </TouchableOpacity>
+      </View>
       
-      <View style={styles.btnContainer}>
-        <Button title="Recargar" onPress={cargarAsistencia} />
+      {/* Botón Recargar Mejorado */}
+      <View style={styles.reloadContainer}>
+        <TouchableOpacity style={styles.reloadBtn} onPress={cargarAsistencia}>
+          <Ionicons name="refresh" size={18} color="#fff" />
+          <Text style={styles.reloadBtnText}>Recargar</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Stats */}
@@ -276,15 +284,12 @@ export default function AsistenciaScreen({ navigation }) {
 
       <View style={styles.footer}>
         <TouchableOpacity
-        style={[styles.deleteBtn, styles.deleteBtnDirigentes]}
-        onPress={() => setConfirmModal({ visible: true, tipo: 'dirigentes' })}
-      >
-        <Text style={styles.deleteBtnText}>Eliminar asist. dirigentes</Text>
-      </TouchableOpacity>
+          style={[styles.deleteBtn, styles.deleteBtnDirigentes]}
+          onPress={() => setConfirmModal({ visible: true, tipo: 'dirigentes' })}
+        >
+          <Text style={styles.deleteBtnText}>Eliminar asist. dirigentes</Text>
+        </TouchableOpacity>
       </View>
-      
-        
-
       
       <QrScannerModal visible={qrVisible}
         onClose={() => {
@@ -303,7 +308,7 @@ export default function AsistenciaScreen({ navigation }) {
         }}
       />
 
-      {/* PICKER DE FECHA: nativo en móvil, input en web */}
+      {/* PICKER DE FECHA */}
       {mostrarPicker && Platform.OS !== 'web' && DateTimePicker && (
         <DateTimePicker
           value={parseFechaLocal(fecha)}
@@ -313,7 +318,6 @@ export default function AsistenciaScreen({ navigation }) {
           onChange={(event, selectedDate) => {
             setMostrarPicker(false);
             if (selectedDate) {
-              // Formatear manualmente para evitar bug UTC
               const y = selectedDate.getFullYear();
               const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
               const d = String(selectedDate.getDate()).padStart(2, '0');
@@ -344,7 +348,7 @@ export default function AsistenciaScreen({ navigation }) {
         </Modal>
       )}
 
-      {/* MODAL: elegir método registro (ausente) */}
+      {/* MODALES de acciones y eliminación... */}
       <Modal transparent animationType="fade" visible={accionModal} onRequestClose={() => setAccionModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
@@ -365,7 +369,6 @@ export default function AsistenciaScreen({ navigation }) {
         </View>
       </Modal>
 
-      {/* MODAL: editar asistencia (ya registrado) */}
       <Modal transparent animationType="fade" visible={editarModal} onRequestClose={() => setEditarModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
@@ -386,7 +389,6 @@ export default function AsistenciaScreen({ navigation }) {
         </View>
       </Modal>
 
-      {/* Modal confirmación eliminar */}
       <Modal transparent animationType="fade" visible={confirmModal.visible} onRequestClose={() => setConfirmModal({ visible: false, tipo: null })}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
@@ -395,20 +397,15 @@ export default function AsistenciaScreen({ navigation }) {
               Eliminar asistencia de {confirmModal.tipo}
             </Text>
             <Text style={{ color: '#666', fontSize: 14, marginBottom: 20, textAlign: 'center' }}>
-              Se eliminarán TODOS los registros de asistencia de {confirmModal.tipo}. Esta acción no se puede deshacer.
+              Se eliminarán TODOS los registros de asistencia. Esta acción no se puede deshacer.
             </Text>
             <TouchableOpacity
               style={{ backgroundColor: '#F44336', paddingVertical: 12, paddingHorizontal: 30, borderRadius: 25, width: '100%', alignItems: 'center' }}
-              onPress={() => {
-                eliminarAsistencia(confirmModal.tipo);
-              }}
+              onPress={() => eliminarAsistencia(confirmModal.tipo)}
             >
               <Text style={{ color: '#fff', fontWeight: 'bold' }}>Sí, eliminar</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={{ marginTop: 12, paddingVertical: 10 }}
-              onPress={() => setConfirmModal({ visible: false, tipo: null })}
-            >
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => setConfirmModal({ visible: false, tipo: null })}>
               <Text style={{ color: '#666' }}>Cancelar</Text>
             </TouchableOpacity>
           </View>
@@ -421,7 +418,6 @@ export default function AsistenciaScreen({ navigation }) {
           <Text style={styles.toastText}>{toastMsg}</Text>
         </View>
       ) : null}
-
     </View>
   );
 }
@@ -437,40 +433,55 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
-  header: {
-    backgroundColor: '#FFA726',
-    padding: 20,
+  dateBarContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  date: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginTop: 4,
-  },
-  mockBadge: {
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderRadius: 15,
+    paddingVertical: 8,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
-  mockBadgeText: {
-    color: '#fff',
-    fontSize: 12,
+  dateArrowBtn: { padding: 6 },
+  dateDisplayBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+  },
+  dateText: {
+    fontSize: 15,
+    color: '#333',
     fontWeight: 'bold',
+  },
+  reloadContainer: {
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  reloadBtn: {
+    flexDirection: 'row',
+    backgroundColor: '#22335D',
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+  },
+  reloadBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginLeft: 6,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -478,7 +489,7 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#fff',
     marginHorizontal: 16,
-    marginTop: -10,
+    marginBottom: 8,
     borderRadius: 15,
     elevation: 3,
     shadowColor: '#000',
@@ -486,17 +497,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  statCard: {
-    alignItems: 'center',
-  },
+  statCard: { alignItems: 'center' },
   statNumber: {
     fontSize: 32,
     fontWeight: 'bold',
     color: '#4CAF50',
   },
-  absentNumber: {
-    color: '#F44336',
-  },
+  absentNumber: { color: '#F44336' },
   statLabel: {
     fontSize: 14,
     color: '#666',
@@ -510,14 +517,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     elevation: 2,
   },
-  cardPresent: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#4CAF50',
-  },
-  cardAbsent: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#F44336',
-  },
+  cardPresent: { borderLeftWidth: 4, borderLeftColor: '#4CAF50' },
+  cardAbsent: { borderLeftWidth: 4, borderLeftColor: '#F44336' },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -543,37 +544,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  absentContainer: {
-    alignItems: 'center',
-  },
   statusBadge: {
-    backgroundColor: '#E8F5E9',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
   },
-  absentBadge: {
-    backgroundColor: '#FFEBEE',
-    marginBottom: 12,
-  },
-  statusText: {
-    color: '#2E7D32',
-    fontWeight: '500',
-  },
-  absentText: {
-    color: '#C62828',
-    fontWeight: '500',
-  },
-  details: {
-    alignItems: 'flex-end',
-  },
+  details: { alignItems: 'flex-end' },
   detailText: {
     fontSize: 12,
     color: '#666',
   },
-  listContent: {
-    paddingBottom: 80,
-  },
+  listContent: { paddingBottom: 80 },
   footer: {
     position: 'relative',
     bottom: 0,
@@ -585,33 +566,11 @@ const styles = StyleSheet.create({
     borderTopColor: '#eee',
     alignItems: 'center',
   },
-  footerNote: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 8,
-    fontStyle: 'italic',
-  },
   loadingText: {
     fontSize: 16,
     color: '#666',
     marginTop: 12,
     marginBottom: 8,
-  },
-  mockIndicator: {
-    fontSize: 12,
-    color: '#FF9800',
-    marginTop: 8,
-  },
-  // Botón de volver
-  backButton: {
-    alignSelf: 'flex-start',
-    marginBottom: 0,
-    padding: 10,
-  },
-  backIcon: {
-    fontSize: 40,
-    color: '#F5A300',
-    fontWeight: 'bold',
   },
   modalOverlay: {
     flex: 1,
@@ -661,31 +620,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   deleteBtn: {
-    backgroundColor: '#F44336',
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 12,
     alignItems: 'center',
-    marginHorizontal: 16,
-    marginBottom: 0,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.15,
     shadowRadius: 2,
   },
-  deleteBtnDirigentes: {
-    backgroundColor: '#FF7043',
-  },
+  deleteBtnDirigentes: { backgroundColor: '#FF7043' },
   deleteBtnText: {
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 13,
     textAlign: 'center',
-  },
-  btnContainer: {
-    marginHorizontal: 25,
-    marginBottom: 5,
-    marginTop: 10,
   },
 });

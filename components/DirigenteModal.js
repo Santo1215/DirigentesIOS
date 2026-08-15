@@ -200,7 +200,7 @@ export default function DirigenteModal({ visible, dirigente, onClose, onSaved })
             </TouchableOpacity>
 
             <TouchableOpacity onPress={guardarCambios} style={styles.save}>
-              <Text style={{ color: '#fff' }}>Guardar</Text>
+              <Text style={{ color: '#fff',fontWeight:'bold' }}>Guardar</Text>
             </TouchableOpacity>
 
             {/* ELIMINAR */}
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
   },
   save: {
     padding: 10,
-    backgroundColor: '#F5A300',
+    backgroundColor: '#FFA726',
     borderRadius: 10,
     marginTop: 20,
   },

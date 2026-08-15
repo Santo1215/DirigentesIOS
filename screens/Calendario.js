@@ -40,6 +40,10 @@ export default function Calendario({ navigation }) {
   const [modalActividadVisible, setModalActividadVisible] = useState(false);
   const [actividadesFormateadas, setActividadesFormateadas] = useState({});
   
+  // Nuevo estado para el menú desplegable del tipo de actividad
+  const [modalTipoVisible, setModalTipoVisible] = useState(false);
+  const opcionesTipo = ['Redes', 'Integración', 'Religioso', 'Reunión', 'Otro'];
+  
   const abrirModalCrear = () => {
     const fechaBase = diaSeleccionado ? new Date(`${diaSeleccionado}T12:00:00`) : new Date();
     setNuevaActividad({
@@ -53,19 +57,19 @@ export default function Calendario({ navigation }) {
   };
 
   const obtenerColorPorTipo = (tipo) => {
-  switch (tipo?.toLowerCase()) {
-    case 'redes':
-      return '#FF9800'; // Naranja
-    case 'reunión':
-      return '#E50F0F'; // Rojo
-    case 'religioso':
-      return '#2196F3'; // Azul
-    case 'integración':
-      return '#4CAF50'; // Verde
-    default:
-      return '#9C27B0'; // Morado (Otro u otros comités)
-  }
-};
+    switch (tipo?.toLowerCase()) {
+      case 'redes':
+        return '#FF9800'; // Naranja
+      case 'reunión':
+        return '#E50F0F'; // Rojo
+      case 'religioso':
+        return '#2196F3'; // Azul
+      case 'integración':
+        return '#4CAF50'; // Verde
+      default:
+        return '#9C27B0'; // Morado (Otro u otros comités)
+    }
+  };
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [nuevaActividad, setNuevaActividad] = useState({
@@ -106,13 +110,13 @@ export default function Calendario({ navigation }) {
     fetchActividades();
   }, []);
 
-const onChangeDate = (event, selectedDate) => {
+  const onChangeDate = (event, selectedDate) => {
     const currentDate = selectedDate || nuevaActividad.fechaObj;
     setShowDatePicker(Platform.OS === 'ios'); // En iOS el picker se queda abierto, en Android se cierra solo
     setNuevaActividad({ ...nuevaActividad, fechaObj: currentDate });
   };
 
-const handleDayPress = (day) => {
+  const handleDayPress = (day) => {
     setDiaSeleccionado(day.dateString);
   };
 
@@ -161,9 +165,8 @@ const handleDayPress = (day) => {
       <SectionTitle title="Calendario" showBackButton={true} 
           onBackPress={() => navigation.goBack()} />
       
-
       {/* CALENDARIO MENSUAL */}
-     <View style={styles.calendarContainer}>
+      <View style={styles.calendarContainer}>
         <Calendar
           markedDates={actividadesFormateadas}
           onDayPress={(day) => handleDayPress(day)}
@@ -189,7 +192,6 @@ const handleDayPress = (day) => {
               </TouchableOpacity>
             );
           }}
-          
         />
       </View>
 
@@ -234,6 +236,7 @@ const handleDayPress = (day) => {
               )}
             </View>
 
+            <Text style={{ color: '#555', marginBottom: 5 }}>Responsable:</Text>
             <TextInput
               style={[styles.input, { backgroundColor: '#e9ecef' }]}
               placeholder="Responsable"
@@ -241,12 +244,20 @@ const handleDayPress = (day) => {
               editable={false}
             />
             
-            <TextInput
-              style={[styles.input, { backgroundColor: '#e9ecef' }]}
-              placeholder="Tipo de Actividad"
-              value={nuevaActividad.tipo}
-              editable={false} 
-            />
+            <Text style={{ color: '#555', marginBottom: 5 }}>Tipo de Actividad:</Text>
+            <TouchableOpacity 
+              style={[styles.input, { justifyContent: 'center', backgroundColor: rol === 'Coordinación' ? '#fff' : '#e9ecef' }]}
+              onPress={() => {
+                if (rol === 'Coordinación') {
+                  setModalTipoVisible(true);
+                }
+              }}
+              disabled={rol !== 'Coordinación'}
+            >
+              <Text style={{ color: nuevaActividad.tipo ? '#333' : '#888' }}>
+                {nuevaActividad.tipo || 'Seleccione un tipo'}
+              </Text>
+            </TouchableOpacity>
 
             <TextInput
               style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
@@ -273,6 +284,41 @@ const handleDayPress = (day) => {
           </View>
         </View>
       </Modal>
+
+      {/* MODAL DESPLEGABLE PARA EL TIPO DE ACTIVIDAD */}
+      <Modal
+        visible={modalTipoVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalTipoVisible(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setModalTipoVisible(false)}
+        >
+          <View style={[styles.modalContent, { width: '70%', padding: 10 }]}>
+            {opcionesTipo.map((opcion, index) => (
+              <TouchableOpacity
+                key={index}
+                style={{
+                  paddingVertical: 15,
+                  borderBottomWidth: index === opcionesTipo.length - 1 ? 0 : 1,
+                  borderBottomColor: '#eee',
+                  alignItems: 'center'
+                }}
+                onPress={() => {
+                  setNuevaActividad({ ...nuevaActividad, tipo: opcion });
+                  setModalTipoVisible(false);
+                }}
+              >
+                <Text style={{ fontSize: 16, color: '#333' }}>{opcion}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       {/* LEYENDA INFERIOR DE CATEGORÍAS */}
       <View style={styles.legendContainer}>
         <View style={styles.legendColorBar}>
@@ -291,14 +337,15 @@ const handleDayPress = (day) => {
         </View>
       </View>
 
-     {(comite === 'Redes' || comite === 'Integración' ||comite === 'Religioso' || rol === 'Coordinación') && (
-      <TouchableOpacity 
-        style={styles.fab}
-        onPress={abrirModalCrear}
-      > 
-        <Ionicons name="add" size={30} color="#fff" />
-      </TouchableOpacity>
+      {(comite === 'Redes' || comite === 'Integración' ||comite === 'Religioso' || rol === 'Coordinación') && (
+        <TouchableOpacity 
+          style={styles.fab}
+          onPress={abrirModalCrear}
+        > 
+          <Ionicons name="add" size={30} color="#fff" />
+        </TouchableOpacity>
       )}
+
       {/* VISTA PREVIA DE ACTIVIDADES DEL DÍA SELECCIONADO */}
       {diaSeleccionado && (
         <View style={styles.previewContainer}>
@@ -331,6 +378,7 @@ const handleDayPress = (day) => {
         </View>
       )}
 
+      {/* MODAL DE DETALLES DE LA ACTIVIDAD */}
       <Modal
         visible={modalDetalleVisible}
         transparent
@@ -354,7 +402,7 @@ const handleDayPress = (day) => {
                 <Text style={styles.detailLabel}>Tipo / Comité:</Text>
                 <Text style={styles.detailValue}>{actividadSeleccionada.tipo || 'N/A'}</Text>
                 
-                {/* SOLO COORDINACIÓN*/}
+                {/* SOLO COORDINACIÓN */}
                 {rol === 'Coordinación' && (
                   <>
                     <Text style={styles.detailLabel}>Responsable:</Text>
@@ -394,7 +442,6 @@ const handleDayPress = (day) => {
 }
 
 const styles = StyleSheet.create({
-
   container: { flex: 1, backgroundColor: '#f5f6f8', paddingTop: 50 },
   topHeader: { paddingHorizontal: 20, marginBottom: 10, zIndex: 10 },
   searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 25, paddingHorizontal: 15, paddingVertical: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 },
@@ -412,6 +459,7 @@ const styles = StyleSheet.create({
   fab: { position: 'absolute', right: 20, bottom: 100, backgroundColor: '#FFA726', width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { width: '80%', backgroundColor: '#fef1e6', borderRadius: 16, padding: 20, elevation: 10 },
+  datePickerContainer: { marginBottom: 10 },
   radioRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
   radioOuter: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#777', justifyContent: 'center', alignItems: 'center', marginRight: 15 },
   radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#FFA726' },
