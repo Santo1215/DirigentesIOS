@@ -1,6 +1,6 @@
 import { useEffect, useState, useContext } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, TextInput, Platform, Alert, ScrollView
+  View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, TextInput, Platform, Alert, ScrollView, Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -102,20 +102,19 @@ export default function InventarioScreen({ navigation }) {
     }
   };
 
-const abrirAcciones = (item) => {
-  const dirigenteActualId = user?.dirigente?.id_dirigente;
+  const abrirAcciones = (item) => {
+    const dirigenteActualId = user?.dirigente?.id_dirigente;
 
-  // Si no hay un dirigente asignado o el ID no coincide con el usuario actual
-  if (!dirigenteActualId || Number(item.id_dirigente) !== Number(dirigenteActualId)) {
-    const msg = 'Solo el dirigente responsable puede gestionar este material';
-    Platform.OS === 'web' ? alert(msg) : Alert.alert('Permiso denegado', msg);
-    return;
-  }
+    if (!dirigenteActualId || Number(item.id_dirigente) !== Number(dirigenteActualId)) {
+      const msg = 'Solo el dirigente responsable puede gestionar este material';
+      Platform.OS === 'web' ? alert(msg) : Alert.alert('Permiso denegado', msg);
+      return;
+    }
 
-  setSelectedMaterial(item);
-  setCantEdit(item.cantidad || 0);
-  setActionModalVisible(true);
-};
+    setSelectedMaterial(item);
+    setCantEdit(item.cantidad || 0);
+    setActionModalVisible(true);
+  };
 
   const actualizarCantidad = async (nuevaCant) => {
     if (nuevaCant < 0) return;
@@ -208,6 +207,7 @@ const abrirAcciones = (item) => {
         </TouchableOpacity>
       </View>
 
+      {/* Tarjeta principal (Lista limpia sin fotos) */}
       <FlatList
         data={inventario}
         keyExtractor={(item) => item.id_material?.toString() || Math.random().toString()}
@@ -261,7 +261,7 @@ const abrirAcciones = (item) => {
         </View>
       </Modal>
 
-      {/* Modal de acciones (Agregar/Quitar, Transferir, Eliminar) */}
+      {/* Modal de acciones (Las fotos SÍ van dentro de este reasignar dirigente) */}
       <Modal transparent animationType="slide" visible={actionModalVisible} onRequestClose={() => setActionModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalBox, { maxHeight: '80%' }]}>
@@ -279,7 +279,7 @@ const abrirAcciones = (item) => {
               </TouchableOpacity>
             </View>
 
-            {/* Reasignar Dirigente */}
+            {/* Reasignar Dirigente (CON FOTOS) */}
             <Text style={[styles.subTitle, { marginTop: 15 }]}>Reasignar Dirigente</Text>
             <ScrollView style={styles.dirigenteList}>
               {dirigentes.map((dir) => (
@@ -291,6 +291,16 @@ const abrirAcciones = (item) => {
                   ]}
                   onPress={() => transferirMaterial(dir.id_dirigente)}
                 >
+                  {dir.foto ? (
+                    <Image 
+                      source={{ uri: dir.foto }} 
+                      style={styles.dirigenteAvatar} 
+                    />
+                  ) : (
+                    <View style={[styles.dirigenteAvatar, styles.avatarPlaceholder]}>
+                      <Ionicons name="person" size={18} color="#888" />
+                    </View>
+                  )}
                   <Text style={styles.dirigenteName}>{dir.nombre} {dir.apellido}</Text>
                 </TouchableOpacity>
               ))}
@@ -398,6 +408,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   dirigenteItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
@@ -405,7 +417,22 @@ const styles = StyleSheet.create({
   dirigenteSelected: {
     backgroundColor: '#e3f2fd',
   },
-  dirigenteName: { fontSize: 14, color: '#333' },
+  dirigenteAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    marginRight: 12,
+    backgroundColor: '#e0e0e0',
+  },
+  avatarPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dirigenteName: { 
+    fontSize: 14, 
+    color: '#333', 
+    fontWeight: '500' 
+  },
   saveBtn: {
     backgroundColor: '#FFA726',
     width: '100%',
