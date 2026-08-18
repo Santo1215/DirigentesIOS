@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Image } from 'react-native';
 import BottomNav from '../components/navbar';
 import { useContext, useEffect, useState } from 'react';
 import { UserContext } from '../context/UserContext';
@@ -8,6 +8,7 @@ import SectionTitle from '../components/TituloSeccion';
 import WaveBackground from '../components/WaveBackground';
 import QrScannerModal from '../components/QrScannerModal';
 import CodigoManualModal from '../components/CodigoManualModal';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function Diris({ navigation }) {
   const { user } = useContext(UserContext);
@@ -19,16 +20,15 @@ export default function Diris({ navigation }) {
   const [codigoVisible, setCodigoVisible] = useState(false);
   const [errorCarga, setErrorCarga] = useState('');
 
-
   useEffect(() => {
     cargarDirigentes();
   }, []);
-
 
   const cargarDirigentes = async () => {
     try {
       const res = await fetch(`${API_URL}/dirigentes`);
       const data = await res.json();
+      if (!res.ok) throw new Error('Error al cargar');
       setDirigentes(data);
     } catch (error) {
       console.error(error);
@@ -38,156 +38,266 @@ export default function Diris({ navigation }) {
     }
   };
 
-  const renderItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.item}
-      onPress={() => {
-        setSelectedDirigente(item);
-        setModalVisible(true);
-      }}
-    >
-      {item.segundo_nombre !== null && (
-        <Text style={styles.nombre}>
-          {item.nombre} {item.segundo_nombre} {item.apellido}
-        </Text>)}
-      {item.segundo_nombre === null && (
-        <Text style={styles.nombre}>
-          {item.nombre} {item.apellido}
-        </Text>)}
-      <Text style={styles.rol}>{item.rol}</Text>
-    </TouchableOpacity>
-  );
+  const renderItem = ({ item }) => {
+    const nombreCompleto = item.segundo_nombre 
+      ? `${item.nombre} ${item.segundo_nombre} ${item.apellido}`
+      : `${item.nombre} ${item.apellido}`;
 
+    return (
+      <TouchableOpacity
+        style={styles.itemCard}
+        onPress={() => {
+          setSelectedDirigente(item);
+          setModalVisible(true);
+        }}
+        activeOpacity={0.85}
+      >
+        {/* Contenedor de la foto o icono por defecto */}
+        <View style={styles.itemIconWrapper}>
+          {item.foto ? (
+            <Image source={{ uri: item.foto }} style={styles.avatarImage} />
+          ) : (
+            <Ionicons name="person-outline" size={20} color="#D97706" />
+          )}
+        </View>
+
+        <View style={styles.itemTextContainer}>
+          <Text style={styles.nombre}>{nombreCompleto}</Text>
+          <Text style={styles.rol}>{item.rol}</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
-      <WaveBackground />
-      {/* LISTA DIRIGENTES */}
+      <WaveBackground style={{ pointerEvents: 'none' }} />
       <SectionTitle title='Dirigentes' />
+
       {errorCarga ? (
         <Text style={styles.errorText}>{errorCarga}</Text>
       ) : null}
+
       <View style={styles.listContainer}>
-
-
         {loading ? (
-          <Text>Cargando...</Text>
+          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#D97706" />
+          </View>
         ) : (
           <FlatList
             data={dirigentes}
             keyExtractor={(item) => item.id_dirigente.toString()}
             renderItem={renderItem}
+            showsVerticalScrollIndicator={false}
           />
         )}
-        <TouchableOpacity style={styles.btnAgregar} onPress={() => navigation.navigate('CrearDiri')}>
-          <Text style={styles.btnText}>Agregar dirigente</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.btnAgregar, { backgroundColor: '#FFD685' }]} onPress={() => navigation.navigate('AsistenciaDiris')}>
-          <Text style={styles.btnText}>Asistencia</Text>
-        </TouchableOpacity>
-      </View>
-      {/* CARD ASISTENCIA */}
-      <View style={styles.card}>
-        <Text style={styles.title}>Tomar asistencia</Text>
 
-        <View style={{ flexDirection: 'row' }}>
-          <TouchableOpacity style={styles.btnQR} onPress={() => setQrVisible(true)}>
-            <Text style={styles.btnText}>Escanear QR</Text>
+        <View style={styles.actionsRow}>
+          <TouchableOpacity 
+            style={styles.btnAgregar} 
+            onPress={() => navigation.navigate('CrearDiri')}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="person-add-outline" size={18} color="#1E293B" />
+            <Text style={styles.btnTextDark}>Agregar dirigente</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.btnCodigo} onPress={() => setCodigoVisible(true)}>
-            <Text style={styles.btnText}>Ingresar código</Text>
+          <TouchableOpacity 
+            style={[styles.btnAgregar, styles.btnAsistenciaSecundaria]} 
+            onPress={() => navigation.navigate('AsistenciaDiris')}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="calendar-outline" size={18} color="#B45309" />
+            <Text style={styles.btnTextOrange}>Asistencia</Text>
           </TouchableOpacity>
         </View>
       </View>
 
+      <View style={styles.card}>
+        <Text style={styles.title}>Tomar asistencia</Text>
 
-      <DirigenteModal visible={modalVisible} dirigente={selectedDirigente}
-        onClose={() => setModalVisible(false)} onSaved={cargarDirigentes} />
+        <View style={styles.qrCodeRow}>
+          <TouchableOpacity 
+            style={styles.btnQR} 
+            onPress={() => setQrVisible(true)}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="qr-code-outline" size={20} color="#B45309" />
+            <Text style={styles.btnTextOrange}>Escanear QR</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.btnCodigo} 
+            onPress={() => setCodigoVisible(true)}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="keypad-outline" size={20} color="#1E293B" />
+            <Text style={styles.btnTextDark}>Ingresar código</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <DirigenteModal 
+        visible={modalVisible} 
+        dirigente={selectedDirigente}
+        onClose={() => setModalVisible(false)} 
+        onSaved={cargarDirigentes} 
+      />
       <QrScannerModal visible={qrVisible} onClose={() => setQrVisible(false)} user={user} />
       <CodigoManualModal visible={codigoVisible} onClose={() => setCodigoVisible(false)} user={user} />
+      
       <BottomNav user={user} navigation={navigation} />
     </View>
   );
 }
 
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', marginTop: 30 },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#F8FAFC', 
+    paddingTop: 30 
+  },
   card: {
-    margin: 10,
+    margin: 20,
     padding: 20,
     borderRadius: 20,
-    backgroundColor: '#f5f5f5',
-    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 20,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 16,
+    color: '#1E293B',
+    textAlign: 'center',
+  },
+  qrCodeRow: {
+    flexDirection: 'row',
+    gap: 12,
   },
   btnQR: {
-    backgroundColor: '#FFD685',
-    padding: 15,
-    borderRadius: 30,
-    width: '50%',
-    marginBottom: 10,
+    flex: 1,
+    backgroundColor: '#FEF3C7',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#FCD34D',
   },
   btnCodigo: {
-    backgroundColor: '#D3DBEE',
-    padding: 15,
-    borderRadius: 30,
-    width: '50%',
-    marginBottom: 10,
-    justifyContent: 'center',
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    flexDirection: 'row',
     alignItems: 'center',
-
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+    marginBottom: 10,
   },
   btnAgregar: {
-    backgroundColor: '#D3DBEE',
-    padding: 15,
-    borderRadius: 30,
-    width: '100%',
-    marginBottom: 5,
-    justifyContent: 'center',
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    flexDirection: 'row',
     alignItems: 'center',
-
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
-  btnText: {
+  btnAsistenciaSecundaria: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FCD34D',
+  },
+  btnTextDark: {
     textAlign: 'center',
-    color: 'black',
-    fontWeight: 'bold',
+    color: '#1E293B',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  btnTextOrange: {
+    textAlign: 'center',
+    color: '#B45309',
+    fontWeight: '700',
+    fontSize: 14,
   },
   listContainer: {
     marginHorizontal: 20,
     marginTop: 5,
     flex: 1,
   },
-  listTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  item: {
-    backgroundColor: '#e0e0e0',
-    padding: 15,
-    borderRadius: 20,
-    marginBottom: 10,
+  itemCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    borderRadius: 16,
+    marginBottom: 12,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  itemIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+    overflow: 'hidden', // Asegura que la imagen respete los bordes redondeados
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  itemTextContainer: {
+    flex: 1,
   },
   nombre: {
-    fontWeight: 'bold',
+    fontWeight: '700',
+    fontSize: 15,
+    color: '#1E293B',
+    marginBottom: 2,
   },
   rol: {
-    color: '#555',
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '400',
   },
   errorText: {
-    color: '#c0392b',
+    color: '#EF4444',
     fontSize: 13,
     marginHorizontal: 20,
     marginBottom: 8,
     textAlign: 'center',
+    fontWeight: '500',
   },
-
 });

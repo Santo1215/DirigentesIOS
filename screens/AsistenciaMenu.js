@@ -41,7 +41,7 @@ function BarraPorcentaje({ pct, color }) {
       <View
         style={[
           styles.barraRelleno,
-          { width: `${pct}%`, backgroundColor: color || '#FFA726' },
+          { width: `${pct}%`, backgroundColor: color || '#F59E0B' },
         ]}
       />
     </View>
@@ -49,12 +49,10 @@ function BarraPorcentaje({ pct, color }) {
 }
 
 /* ─── Campo de fecha cross-platform ────────────────────────── */
-/* ─── Campo de fecha cross-platform ────────────────────────── */
 function DateField({ label, value, onChange }) {
   const isWeb = Platform.OS === 'web';
   const [mostrarPicker, setMostrarPicker] = useState(false);
 
-  // Función para convertir el string 'YYYY-MM-DD' a un objeto Date
   const parseFecha = (fechaStr) => {
     const [y, m, d] = fechaStr.split('-').map(Number);
     return new Date(y, m - 1, d);
@@ -79,15 +77,16 @@ function DateField({ label, value, onChange }) {
           value={value}
           onChange={(e) => onChange(e.target.value)}
           style={{
-            border: '1.5px solid #ddd',
-            borderRadius: 10,
-            padding: '8px 12px',
+            border: '1.5px solid #E2E8F0',
+            borderRadius: 12,
+            padding: '10px 14px',
             fontSize: 14,
-            color: '#222',
+            color: '#1E293B',
             outline: 'none',
             fontFamily: 'inherit',
             width: '100%',
-            boxSizing: 'border-box',
+            boxSizing: 'box-border',
+            backgroundColor: '#F8FAFC',
           }}
         />
       ) : (
@@ -95,8 +94,10 @@ function DateField({ label, value, onChange }) {
           <TouchableOpacity 
             style={styles.nativeDateInput} 
             onPress={() => setMostrarPicker(true)}
+            activeOpacity={0.8}
           >
-            <Text style={{ color: '#555', fontSize: 14 }}>{value}</Text>
+            <Ionicons name="calendar-outline" size={16} color="#64748B" style={{ marginRight: 8 }} />
+            <Text style={{ color: '#334155', fontSize: 14, fontWeight: '500' }}>{value}</Text>
           </TouchableOpacity>
           
           {mostrarPicker && DateTimePicker && (
@@ -112,14 +113,11 @@ function DateField({ label, value, onChange }) {
     </View>
   );
 }
-
-/* ═══════════════════════════════════════════════════════════════
-   SCREEN PRINCIPAL
-═══════════════════════════════════════════════════════════════ */
 export default function AsistenciaMenu({ navigation }) {
-  const { user, setUser } = useContext(UserContext);
+  const { user } = useContext(UserContext);
   const [token, setToken] = useState(null);
   const [modalProximamenteVisible, setModalProximamenteVisible] = useState(false);
+  
   /* Notificación */
   const [enviandoNotif, setEnviandoNotif] = useState(false);
   const [notifModal, setNotifModal] = useState(false);
@@ -135,7 +133,6 @@ export default function AsistenciaMenu({ navigation }) {
     AsyncStorage.getItem('token').then(setToken);
   }, []);
 
-  /* ── Enviar recordatorio ──────────────────────────────── */
   const enviarRecordatorio = async () => {
     setEnviandoNotif(true);
     try {
@@ -163,7 +160,6 @@ export default function AsistenciaMenu({ navigation }) {
     }
   };
 
-  /* ── Generar reporte ─────────────────────────────────── */
   const generarReporte = async () => {
     if (!desde || !hasta) {
       const msg = 'Por favor selecciona ambas fechas';
@@ -200,17 +196,38 @@ export default function AsistenciaMenu({ navigation }) {
     setHasta(hoy());
   };
 
-  /* ── Render ──────────────────────────────────────────── */
   return (
     <View style={styles.container}>
       <WaveBackground style={{ pointerEvents: 'none' }} />
       <SectionTitle title="Asistencia" />
-      <View style={styles.contentWrapper}>
-        <MenuItem label="Asistencia" onPress={() => navigation.navigate('AsistenciaTribus')} />
-        <MenuItem label="Reporte" onPress={() => setReporteModal(true)} />
-        <MenuItem label="Buscar" proximamente={true} onOpenProximamente={() => setModalProximamenteVisible(true)} />
-        <MenuItem label="Enviar Recordatorio" onPress={() => setNotifModal(true)} />
-      </View>
+      
+      <ScrollView contentContainerStyle={styles.contentWrapper} showsVerticalScrollIndicator={false}>
+        <MenuItem 
+          icon="checkbox-outline" 
+          label="Asistencia" 
+          subtitle="Verificar asistencia"
+          onPress={() => navigation.navigate('AsistenciaTribus')} 
+        />
+        <MenuItem 
+          icon="bar-chart-outline" 
+          label="Reporte" 
+          subtitle="Estadísticas de las tribus"
+          onPress={() => setReporteModal(true)} 
+        />
+        <MenuItem 
+          icon="search-outline" 
+          label="Buscar" 
+          subtitle="Consultar registros pasados"
+          proximamente={true} 
+          onOpenProximamente={() => setModalProximamenteVisible(true)} 
+        />
+        <MenuItem 
+          icon="notifications-outline" 
+          label="Enviar Recordatorio" 
+          subtitle="Avisar a los dirigentes"
+          onPress={() => setNotifModal(true)} 
+        />
+      </ScrollView>
 
       <BottomNav navigation={navigation} />
 
@@ -218,24 +235,28 @@ export default function AsistenciaMenu({ navigation }) {
       <Modal transparent animationType="fade" visible={notifModal} onRequestClose={() => setNotifModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
-            <Text style={{ fontSize: 40, marginBottom: 10 }}>🔔</Text>
-            <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 8, textAlign: 'center' }}>
-              Enviar recordatorio
-            </Text>
-            <Text style={{ color: '#666', fontSize: 14, marginBottom: 20, textAlign: 'center' }}>
-              Se enviará una notificación a TODOS los dirigentes con el mensaje:{"\n\n"}"RECUERDA TOMAR LA ASISTENCIA DE LA TRIBU"
+            <View style={styles.iconContainerNotif}>
+              <Ionicons name="notifications" size={28} color="#D97706" />
+            </View>
+            <Text style={styles.modalBoxTitle}>Enviar recordatorio</Text>
+            <Text style={styles.modalBoxText}>
+              Se enviará una notificación a TODOS los dirigentes con el mensaje:{"\n\n"}
+              <Text style={{ fontWeight: '600', color: '#1E293B' }}>"RECUERDA TOMAR LA ASISTENCIA DE LA TRIBU"</Text>
             </Text>
             <TouchableOpacity
               style={[styles.notifConfirmBtn, enviandoNotif && { opacity: 0.6 }]}
               onPress={enviarRecordatorio}
               disabled={enviandoNotif}
+              activeOpacity={0.85}
             >
-              <Text style={{ color: '#fff', fontWeight: 'bold' }}>
-                {enviandoNotif ? 'Enviando...' : 'Sí, enviar'}
-              </Text>
+              {enviandoNotif ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.notifConfirmText}>Sí, enviar</Text>
+              )}
             </TouchableOpacity>
-            <TouchableOpacity style={{ marginTop: 12, paddingVertical: 10 }} onPress={() => setNotifModal(false)}>
-              <Text style={{ color: '#666' }}>Cancelar</Text>
+            <TouchableOpacity style={styles.cancelModalBtn} onPress={() => setNotifModal(false)}>
+              <Text style={styles.cancelModalText}>Cancelar</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -247,15 +268,18 @@ export default function AsistenciaMenu({ navigation }) {
           <View style={styles.reporteBox}>
             {/* Encabezado */}
             <View style={styles.reporteHeader}>
-              <Text style={styles.reporteTitulo}>Reporte de Asistencia</Text>
-              <TouchableOpacity onPress={cerrarReporte} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name="close" size={22} color="#555" />
+              <View>
+                <Text style={styles.reporteTitulo}>Reporte de Asistencia</Text>
+                <Text style={styles.reporteSubtitulo}>Top 5 tribus con mayor asistencia global</Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.closeIconBtn} 
+                onPress={cerrarReporte} 
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={20} color="#475569" />
               </TouchableOpacity>
             </View>
-
-            <Text style={styles.reporteSubtitulo}>
-              Top 5 tribus con mayor porcentaje de asistencia global
-            </Text>
 
             {/* Selector de fechas */}
             <View style={styles.fechasRow}>
@@ -269,6 +293,7 @@ export default function AsistenciaMenu({ navigation }) {
               style={[styles.generarBtn, cargando && { opacity: 0.6 }]}
               onPress={generarReporte}
               disabled={cargando}
+              activeOpacity={0.85}
             >
               {cargando
                 ? <ActivityIndicator color="#fff" size="small" />
@@ -280,7 +305,7 @@ export default function AsistenciaMenu({ navigation }) {
             {resultado && (
               <ScrollView style={styles.resultadosScroll} showsVerticalScrollIndicator={false}>
                 <Text style={styles.periodoText}>
-                  {formatDate(resultado.desde)} — {formatDate(resultado.hasta)}
+                  Período: {formatDate(resultado.desde)} — {formatDate(resultado.hasta)}
                 </Text>
 
                 {resultado.tribus.length === 0 ? (
@@ -290,7 +315,7 @@ export default function AsistenciaMenu({ navigation }) {
                 ) : (
                   resultado.tribus.map((t, i) => {
                     const pct = parseFloat(t.porcentaje) || 0;
-                    const color = t.color_hex || '#FFA726';
+                    const color = t.color_hex || '#F59E0B';
                     return (
                       <View key={t.id_tribu} style={styles.tribCard}>
                         <View style={styles.tribRow}>
@@ -301,7 +326,7 @@ export default function AsistenciaMenu({ navigation }) {
                               {t.total_presentes} / {t.total_posibles} presentes
                             </Text>
                           </View>
-                          <View style={[styles.pctBadge, { backgroundColor: color + '22' }]}>
+                          <View style={[styles.pctBadge, { backgroundColor: color + '20' }]}>
                             <Text style={[styles.pctText, { color }]}>{pct}%</Text>
                           </View>
                         </View>
@@ -317,116 +342,368 @@ export default function AsistenciaMenu({ navigation }) {
       </Modal>
 
       <ModalProximamente 
-              visible={modalProximamenteVisible} 
-              onClose={() => setModalProximamenteVisible(false)} 
-            />  
-
+        visible={modalProximamenteVisible} 
+        onClose={() => setModalProximamenteVisible(false)} 
+      />  
     </View>
   );
 }
 
-/* ─── MenuItem ──────────────────────────────────────────────── */
-function MenuItem({ label, onPress, proximamente, onOpenProximamente }) {
+/* ─── MenuItem Modernizado ──────────────────────────────────── */
+function MenuItem({ icon, label, subtitle, onPress, proximamente, onOpenProximamente }) {
   return (
     <TouchableOpacity
-      style={styles.item}
+      style={styles.itemCard}
       onPress={proximamente ? onOpenProximamente : onPress}
+      activeOpacity={0.85}
     >
-      <Text style={styles.itemText}>{label}</Text>
+      <View style={styles.iconWrapper}>
+        <Ionicons name={icon} size={24} color="#D97706" />
+      </View>
+      <View style={styles.itemTextContainer}>
+        <Text style={styles.itemTitle}>{label}</Text>
+        <Text style={styles.itemSubtitle}>{subtitle}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
+
       {proximamente && (
         <View style={styles.proximamenteOverlay}>
-          <Text style={styles.proximamenteText}>Próximamente</Text>
+          <View style={styles.badgeProximamente}>
+            <Text style={styles.proximamenteText}>Próximamente</Text>
+          </View>
         </View>
       )}
     </TouchableOpacity>
   );
 }
 
-
-
-/* ─── Styles ────────────────────────────────────────────────── */
+/* ─── Styles Mejorados ──────────────────────────────────────── */
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingTop: 40 },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#F8FAFC', 
+    paddingTop: 30 
+  },
 
   contentWrapper: {
-    flex: 1, zIndex: 10, alignItems: 'center', justifyContent: 'center',
+    padding: 20,
+    paddingBottom: 110,
+    zIndex: 10, 
   },
 
-  item: {
-    width: '90%', height: 70, backgroundColor: '#ffa34cbb',
-    borderRadius: 30, marginBottom: 20, alignItems: 'center',
-    justifyContent: 'center', position: 'relative', overflow: 'hidden',
+  itemCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+    position: 'relative',
+    overflow: 'hidden',
   },
-  itemText: { marginTop: 6, fontSize: 16, fontWeight: '500', color: '#222' },
+
+  iconWrapper: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+
+  itemTextContainer: {
+    flex: 1,
+  },
+
+  itemTitle: { 
+    fontSize: 16, 
+    fontWeight: '700', 
+    color: '#1E293B',
+    marginBottom: 2,
+  },
+
+  itemSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '400',
+  },
 
   proximamenteOverlay: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center',
+    position: 'absolute', 
+    top: 0, 
+    left: 0, 
+    right: 0, 
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)', 
+    alignItems: 'center', 
+    justifyContent: 'flex-end',
+    flexDirection: 'row',
+    paddingRight: 20,
   },
+
+  badgeProximamente: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+  },
+
   proximamenteText: {
-    color: '#fff', fontWeight: 'bold', fontSize: 13,
-    textTransform: 'uppercase', letterSpacing: 0.5,
+    color: '#B45309', 
+    fontWeight: '700', 
+    fontSize: 12,
+    textTransform: 'uppercase', 
+    letterSpacing: 0.5,
   },
 
   /* ── Modales ── */
   modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center', alignItems: 'center',
+    flex: 1, 
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    justifyContent: 'center', 
+    alignItems: 'center',
   },
+
   modalBox: {
-    backgroundColor: '#fff', borderRadius: 16,
-    padding: 24, width: '80%', alignItems: 'center',
+    backgroundColor: '#FFFFFF', 
+    borderRadius: 20,
+    padding: 24, 
+    width: '85%', 
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 15,
+    elevation: 10,
   },
+
+  iconContainerNotif: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FEF3C7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+
+  modalBoxTitle: { 
+    fontWeight: '700', 
+    fontSize: 18, 
+    marginBottom: 8, 
+    textAlign: 'center',
+    color: '#1E293B',
+  },
+
+  modalBoxText: { 
+    color: '#64748B', 
+    fontSize: 14, 
+    marginBottom: 24, 
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+
   notifConfirmBtn: {
-    backgroundColor: '#FFA726', paddingVertical: 12,
-    paddingHorizontal: 30, borderRadius: 25, width: '100%', alignItems: 'center',
+    backgroundColor: '#D97706', 
+    paddingVertical: 14,
+    borderRadius: 12, 
+    width: '100%', 
+    alignItems: 'center',
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+
+  notifConfirmText: { 
+    color: '#FFFFFF', 
+    fontWeight: '700',
+    fontSize: 15,
+  },
+
+  cancelModalBtn: { 
+    marginTop: 12, 
+    paddingVertical: 8,
+  },
+
+  cancelModalText: { 
+    color: '#64748B',
+    fontWeight: '600',
+    fontSize: 14,
   },
 
   /* ── Reporte modal ── */
   reporteBox: {
-    backgroundColor: '#fff', borderRadius: 20, padding: 22,
-    width: '92%', maxHeight: '85%',
+    backgroundColor: '#FFFFFF', 
+    borderRadius: 20, 
+    padding: 22,
+    width: '92%', 
+    maxHeight: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 15,
+    elevation: 10,
   },
-  reporteHeader: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginBottom: 4,
-  },
-  reporteTitulo: { fontSize: 17, fontWeight: '700', color: '#222' },
-  reporteSubtitulo: { fontSize: 12, color: '#888', marginBottom: 16 },
 
-  fechasRow: { flexDirection: 'row', marginBottom: 14 },
-  dateField: { flex: 1 },
-  dateLabel: { fontSize: 12, color: '#666', marginBottom: 4, fontWeight: '600' },
+  reporteHeader: {
+    flexDirection: 'row', 
+    justifyContent: 'space-between',
+    alignItems: 'flex-start', 
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    paddingBottom: 12,
+  },
+
+  reporteTitulo: { 
+    fontSize: 18, 
+    fontWeight: '700', 
+    color: '#1E293B',
+    marginBottom: 2,
+  },
+
+  reporteSubtitulo: { 
+    fontSize: 13, 
+    color: '#64748B' 
+  },
+
+  closeIconBtn: {
+    backgroundColor: '#F1F5F9',
+    padding: 6,
+    borderRadius: 10,
+  },
+
+  fechasRow: { 
+    flexDirection: 'row', 
+    marginBottom: 16 
+  },
+
+  dateField: { 
+    flex: 1 
+  },
+
+  dateLabel: { 
+    fontSize: 13, 
+    color: '#475569', 
+    marginBottom: 6, 
+    fontWeight: '600' 
+  },
+
   nativeDateInput: {
-    borderWidth: 1.5, borderColor: '#ddd', borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 8,
+    borderWidth: 1, 
+    borderColor: '#E2E8F0', 
+    borderRadius: 12,
+    paddingHorizontal: 14, 
+    paddingVertical: 12,
+    backgroundColor: '#F8FAFC',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 
   generarBtn: {
-    backgroundColor: '#FFA726', borderRadius: 25,
-    paddingVertical: 12, alignItems: 'center', marginBottom: 16,
+    backgroundColor: '#D97706', 
+    borderRadius: 12,
+    paddingVertical: 14, 
+    alignItems: 'center', 
+    marginBottom: 16,
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  generarBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 
-  resultadosScroll: { maxHeight: 340 },
-  periodoText: {
-    fontSize: 12, color: '#888', textAlign: 'center',
-    marginBottom: 12, fontStyle: 'italic',
+  generarBtnText: { 
+    color: '#FFFFFF', 
+    fontWeight: '700', 
+    fontSize: 15 
   },
-  sinDatosText: { color: '#999', textAlign: 'center', marginTop: 20, fontSize: 14 },
+
+  resultadosScroll: { 
+    maxHeight: 320 
+  },
+
+  periodoText: {
+    fontSize: 13, 
+    color: '#64748B', 
+    textAlign: 'center',
+    marginBottom: 14, 
+    fontWeight: '500',
+  },
+
+  sinDatosText: { 
+    color: '#94A3B8', 
+    textAlign: 'center', 
+    marginTop: 20, 
+    fontSize: 14 
+  },
 
   tribCard: {
-    backgroundColor: '#fafafa', borderRadius: 14, padding: 14,
-    marginBottom: 10, borderWidth: 1, borderColor: '#f0f0f0',
+    backgroundColor: '#FFFFFF', 
+    borderRadius: 14, 
+    padding: 14,
+    marginBottom: 10, 
+    borderWidth: 1, 
+    borderColor: '#E2E8F0',
   },
-  tribRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  medal: { fontSize: 22, marginRight: 10 },
-  tribNombre: { fontWeight: '700', fontSize: 14, color: '#222' },
-  tribDetalle: { fontSize: 12, color: '#888', marginTop: 2 },
 
-  pctBadge: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4, marginLeft: 8 },
-  pctText: { fontWeight: '800', fontSize: 15 },
+  tribRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginBottom: 10 
+  },
 
-  barraFondo: { height: 6, backgroundColor: '#eee', borderRadius: 4, overflow: 'hidden' },
-  barraRelleno: { height: 6, borderRadius: 4 },
+  medal: { 
+    fontSize: 22, 
+    marginRight: 10 
+  },
+
+  tribNombre: { 
+    fontWeight: '700', 
+    fontSize: 15, 
+    color: '#1E293B' 
+  },
+
+  tribDetalle: { 
+    fontSize: 12, 
+    color: '#64748B', 
+    marginTop: 2 
+  },
+
+  pctBadge: { 
+    borderRadius: 10, 
+    paddingHorizontal: 10, 
+    paddingVertical: 4, 
+    marginLeft: 8 
+  },
+
+  pctText: { 
+    fontWeight: '800', 
+    fontSize: 14 
+  },
+
+  barraFondo: { 
+    height: 6, 
+    backgroundColor: '#F1F5F9', 
+    borderRadius: 4, 
+    overflow: 'hidden' 
+  },
+
+  barraRelleno: { 
+    height: 6, 
+    borderRadius: 4 
+  },
 });

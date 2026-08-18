@@ -1,14 +1,24 @@
-import React, { useState, useContext } from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Modal, TextInput, FlatList, Linking } from 'react-native';
-import ExoditoItem from '../components/ExoditoItem';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import BottomNav from '../components/navbar';
-import { UserContext } from '../context/UserContext';
-import SectionTitle from '../components/TituloSeccion';
+import React, { useState, useContext, useEffect } from 'react';
+import { 
+  View, 
+  StyleSheet, 
+  Text, 
+  ScrollView, 
+  TouchableOpacity, 
+  Modal, 
+  TextInput, 
+  FlatList, 
+  Linking 
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import ExoditoItem from '../components/ExoditoItem';
+import BottomNav from '../components/navbar';
+import SectionTitle from '../components/TituloSeccion';
 import WaveBackground from '../components/WaveBackground';
+import { UserContext } from '../context/UserContext';
 import { API_URL } from '../api';
-import { useEffect } from 'react';
 
 export default function Tribu({ navigation }) {
   const { user } = useContext(UserContext);
@@ -22,13 +32,12 @@ export default function Tribu({ navigation }) {
   const idTribuSecundariaUsuario = user?.dirigente?.id_tribu_secundaria || null;
   const tieneSecundaria = !esCoordinacion && !!idTribuSecundariaUsuario;
 
-  // Para coordinación, la tribu seleccionada arranca con la tribu asignada al usuario
   const [tribuSeleccionada, setTribuSeleccionada] = useState(
     esCoordinacion && user?.dirigente?.id_tribu
       ? { id_tribu: user.dirigente.id_tribu, nombre: user.dirigente.tribu }
       : null
   );
-  // Para dirigentes con tribu secundaria: tribu actualmente activa
+
   const [tribuActivaNormal, setTribuActivaNormal] = useState(
     tieneSecundaria
       ? { id_tribu: user.dirigente.id_tribu, nombre: user.dirigente.tribu, drive: user.dirigente.drive }
@@ -37,7 +46,6 @@ export default function Tribu({ navigation }) {
   const [todasLasTribus, setTodasLasTribus] = useState([]);
   const [modalTribusVisible, setModalTribusVisible] = useState(false);
 
-  // Tribu activa unificada para los tres casos
   const idTribu = esCoordinacion
     ? tribuSeleccionada?.id_tribu
     : tieneSecundaria
@@ -65,69 +73,78 @@ export default function Tribu({ navigation }) {
   const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
   const [exoditoAEliminar, setExoditoAEliminar] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
-  const [toastType, setToastType] = useState('error'); // 'error' | 'success'
+  const [toastType, setToastType] = useState('error');
 
   const showToast = (msg, type = 'error') => {
     setToastMsg(msg);
     setToastType(type);
     setTimeout(() => setToastMsg(''), 3000);
   };
-  useEffect(() => {
-    AsyncStorage.getItem('token').then(setToken);
-  }, []);
 
-  // Cargar todas las tribus si es coordinación
+  // Cargar token inicial y peticiones de tribus de forma centralizada
   useEffect(() => {
-    if (!esCoordinacion || !token) return;
-    const cargarTribus = async () => {
+    const inicializar = async () => {
       try {
-        const res = await fetch(`${API_URL}/tribus`, {
+        const storedToken = await AsyncStorage.getItem('token');
+        setToken(storedToken);
+
+        if (!storedToken) return;
+
+        if (esCoordinacion || tieneSecundaria) {
+          const res = await fetch(`${API_URL}/tribus`, {
+            headers: { Authorization: `Bearer ${storedToken}` },
+          });
+          const data = await res.json();
+          
+          if (res.ok) {
+            if (esCoordinacion) {
+              setTodasLasTribus(data);
+            } else if (tieneSecundaria) {
+              const tribuPrincipal = data.find(t => Number(t.id_tribu) === Number(user.dirigente.id_tribu));
+              const tribuSecundaria = data.find(t => Number(t.id_tribu) === Number(idTribuSecundariaUsuario));
+              if (tribuPrincipal) setTribuActivaNormal(tribuPrincipal);
+              setTodasLasTribus([tribuPrincipal, tribuSecundaria].filter(Boolean));
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error al inicializar datos:', err);
+      }
+    };
+    inicializar();
+  }, [esCoordinacion, tieneSecundaria]);
+
+  // Cargar exoditos de la tribu activa
+  useEffect(() => {
+    if (!idTribu || !token) return;
+    setExoditos([]);
+    setPresentes([]);
+    setModo('vista');
+
+    const cargarExoditos = async () => {
+      try {
+        const res = await fetch(`${API_URL}/exoditos/tribu/${idTribu}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
         if (res.ok) {
-          setTodasLasTribus(data);
+          setExoditos(data);
+        } else {
+          console.warn('Error backend:', data);
         }
       } catch (err) {
-        console.error('Error cargando tribus:', err);
+        console.error('Error cargando exoditos:', err);
       }
     };
-    cargarTribus();
-  }, [esCoordinacion, token]);
 
-  // Cargar datos de tribu secundaria para dirigentes que la tienen
-  useEffect(() => {
-    if (!tieneSecundaria || !token) return;
-    const cargarTribusDelDirigente = async () => {
-      try {
-        const res = await fetch(`${API_URL}/tribus`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (res.ok) {
-          // Guardamos las dos tribus disponibles para el dirigente
-          const tribuPrincipal = data.find(t => Number(t.id_tribu) === Number(user.dirigente.id_tribu));
-          const tribuSecundaria = data.find(t => Number(t.id_tribu) === Number(idTribuSecundariaUsuario));
-          // Actualizar la tribu activa inicial con la info completa (incluye drive)
-          if (tribuPrincipal) setTribuActivaNormal(tribuPrincipal);
-          setTodasLasTribus(
-            [tribuPrincipal, tribuSecundaria].filter(Boolean)
-          );
-        }
-      } catch (err) {
-        console.error('Error cargando tribus del dirigente:', err);
-      }
-    };
-    cargarTribusDelDirigente();
-  }, [tieneSecundaria, token]);
+    cargarExoditos();
+  }, [idTribu, token]);
 
   const cambiarCargo = async (exodito, direccion) => {
     const indexActual = CARGOS.indexOf(exodito.cargo);
     if (indexActual === -1) return;
 
-    const nuevoIndex =
-      direccion === 'subir' ? indexActual + 1 : indexActual - 1;
-
+    const nuevoIndex = direccion === 'subir' ? indexActual + 1 : indexActual - 1;
     if (nuevoIndex < 0 || nuevoIndex >= CARGOS.length) {
       showToast('No se puede cambiar más el cargo', 'error');
       return;
@@ -146,31 +163,26 @@ export default function Tribu({ navigation }) {
           nombre: exodito.nombre,
           apellido: exodito.apellido,
           id_tribu: idTribu,
-          cargo: nuevoCargo
+          cargo: nuevoCargo,
         }),
       });
 
       const data = await res.json();
-
       if (!res.ok) {
         showToast(data.message || 'No se pudo actualizar el cargo');
         return;
       }
 
       setExoditos(prev =>
-        prev.map(e =>
-          e.id_exodito === exodito.id_exodito
-            ? { ...e, cargo: nuevoCargo }
-            : e
-        )
+        prev.map(e => (e.id_exodito === exodito.id_exodito ? { ...e, cargo: nuevoCargo } : e))
       );
-
       showToast(`${exodito.nombre} ahora es ${nuevoCargo}`, 'success');
     } catch (err) {
       console.error(err);
       showToast('Error de conexión');
     }
   };
+
   const eliminarExodito = (exodito) => {
     setExoditoAEliminar(exodito);
     setConfirmDeleteVisible(true);
@@ -182,9 +194,7 @@ export default function Tribu({ navigation }) {
     try {
       const res = await fetch(`${API_URL}/exodito/${exoditoAEliminar.id_exodito}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
 
@@ -192,9 +202,7 @@ export default function Tribu({ navigation }) {
         showToast(data.message || 'No se pudo eliminar el exodito');
         return;
       }
-      setExoditos(prev =>
-        prev.filter(e => e.id_exodito !== exoditoAEliminar.id_exodito)
-      );
+      setExoditos(prev => prev.filter(e => e.id_exodito !== exoditoAEliminar.id_exodito));
       showToast(`${exoditoAEliminar.nombre} ha sido eliminado`, 'success');
     } catch (err) {
       console.error(err);
@@ -205,8 +213,8 @@ export default function Tribu({ navigation }) {
   };
 
   const togglePresente = (id) => {
-    setPresentes((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    setPresentes(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     );
   };
 
@@ -216,10 +224,7 @@ export default function Tribu({ navigation }) {
       estado: presentes.includes(e.id_exodito) ? 'Presente' : 'Ausente',
     }));
 
-
     try {
-      // Fecha local del dispositivo en formato YYYY-MM-DD para evitar
-      // que el servidor UTC registre el día siguiente cuando se envía tarde
       const ahora = new Date();
       const fechaLocal = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
 
@@ -236,26 +241,23 @@ export default function Tribu({ navigation }) {
       });
 
       const data = await res.json();
-
       if (!res.ok) {
         showToast(data.error || 'No se pudo registrar la asistencia');
         return;
       }
 
       showToast(`Asistencia registrada (${data.total} exoditos)`, 'success');
-
       setPresentes([]);
       setModo('vista');
-
     } catch (err) {
       console.error(err);
       showToast('Error de conexión con el servidor');
     }
   };
 
-
   const agregarNuevoExodito = () => {
     setNuevoNombre('');
+    setNuevoApellido('');
     setModalNuevoVisible(true);
   };
 
@@ -265,47 +267,15 @@ export default function Tribu({ navigation }) {
       <TouchableOpacity
         style={[styles.modoBtn, activo && styles.modoBtnActivo]}
         onPress={() => setModo(tipo)}
+        activeOpacity={0.7}
       >
-        <Ionicons name={icono} size={22} color={activo ? '#fff' : '#555'} />
-        <Text style={[styles.modoBtnText, activo && { color: '#fff' }]}>
+        <Ionicons name={icono} size={20} color={activo ? '#fff' : '#666'} />
+        <Text style={[styles.modoBtnText, activo && styles.modoBtnTextActivo]}>
           {label}
         </Text>
       </TouchableOpacity>
     );
   };
-  useEffect(() => {
-    if (!idTribu || !token) return;
-    // Limpiar estado al cambiar de tribu
-    setExoditos([]);
-    setPresentes([]);
-    setModo('vista');
-
-    const cargarExoditos = async () => {
-      try {
-        const res = await fetch(
-          `${API_URL}/exoditos/tribu/${idTribu}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        const data = await res.json()
-        
-        if (res.ok) {
-          setExoditos(data);
-        } else {
-          console.warn('Error backend:', data);
-        }
-      } catch (err) {
-        console.error('Error cargando exoditos:', err);
-      }
-    };
-
-    cargarExoditos();
-  }, [idTribu, token]);
-
 
   return (
     <View style={styles.container}>
@@ -316,6 +286,7 @@ export default function Tribu({ navigation }) {
         <TouchableOpacity
           style={styles.selectorTribu}
           onPress={() => setModalTribusVisible(true)}
+          activeOpacity={0.8}
         >
           <Ionicons name="people-outline" size={20} color="#FF8C42" />
           <Text style={styles.selectorTribuText}>
@@ -335,6 +306,7 @@ export default function Tribu({ navigation }) {
                 key={t.id_tribu}
                 style={[styles.tribuTab, activa && styles.tribuTabActiva]}
                 onPress={() => setTribuActivaNormal(t)}
+                activeOpacity={0.8}
               >
                 <Text style={[styles.tribuTabText, activa && styles.tribuTabTextActiva]}>
                   {t.nombre}
@@ -345,11 +317,11 @@ export default function Tribu({ navigation }) {
         </View>
       )}
 
-      {/* Selector de modos (solo si hay tribu activa) */}
+      {/* Selector de modos */}
       {(!esCoordinacion || tribuSeleccionada) && (!tieneSecundaria || tribuActivaNormal) && (
         <View style={styles.modosContainer}>
           {renderModoButton('vista', 'eye-outline', 'Vista')}
-          {renderModoButton('editar', 'pencil', 'Editar')}
+          {renderModoButton('editar', 'create-outline', 'Editar')}
           {renderModoButton('asistencia', 'checkmark-circle-outline', 'Asistencia')}
         </View>
       )}
@@ -359,16 +331,16 @@ export default function Tribu({ navigation }) {
         <TouchableOpacity
           style={styles.driveBtn}
           onPress={() => Linking.openURL(driveUrl)}
+          activeOpacity={0.8}
         >
           <Ionicons name="folder-open-outline" size={20} color="#fff" />
-          <Text style={styles.driveBtnText}>Abrir Drive</Text>
+          <Text style={styles.driveBtnText}>Abrir Google Drive</Text>
         </TouchableOpacity>
       )}
 
       <WaveBackground />
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Placeholder cuando coordinación aún no eligió tribu */}
         {esCoordinacion && !tribuSeleccionada && (
           <View style={styles.placeholderContainer}>
             <Ionicons name="people-circle-outline" size={72} color="#FFD5B0" />
@@ -379,32 +351,32 @@ export default function Tribu({ navigation }) {
           </View>
         )}
 
-        {/* Leyenda */}
         {(!esCoordinacion || tribuSeleccionada) && (modo === 'vista' || modo === 'editar') && (
           <View style={styles.leyenda}>
-            <Text style={styles.leyendaText}>
-              <Ionicons name="triangle" size={20} color="#000" /> Jefe
-            </Text>
-            <Text style={styles.leyendaText}>
-              <Ionicons name="triangle-outline" size={20} color="#000" /> Subjefe
-            </Text>
-            <Text style={styles.leyendaText}>
-              <Ionicons name="ellipse-outline" size={20} color="#000" /> Líder
-            </Text>
+            <View style={styles.leyendaItem}>
+              <Ionicons name="triangle" size={14} color="#333" />
+              <Text style={styles.leyendaText}>Jefe</Text>
+            </View>
+            <View style={styles.leyendaItem}>
+              <Ionicons name="triangle-outline" size={14} color="#333" />
+              <Text style={styles.leyendaText}>Subjefe</Text>
+            </View>
+            <View style={styles.leyendaItem}>
+              <Ionicons name="ellipse-outline" size={14} color="#333" />
+              <Text style={styles.leyendaText}>Líder</Text>
+            </View>
           </View>
         )}
 
-        {/* Info modo asistencia */}
         {(!esCoordinacion || tribuSeleccionada) && modo === 'asistencia' && (
           <View style={styles.infoAsistencia}>
-            <Ionicons name="information-circle-outline" size={20} color="#555" />
+            <Ionicons name="information-circle-outline" size={20} color="#0066cc" />
             <Text style={styles.infoText}>
-              Toca para marcar/quitar presente • {presentes.length} presentes
+              Toca para marcar/quitar presente • <Text style={{ fontWeight: 'bold' }}>{presentes.length}</Text> presentes
             </Text>
           </View>
         )}
 
-        {/* Lista de miembros */}
         {exoditos.map((exodito) => (
           <ExoditoItem
             key={exodito.id_exodito}
@@ -419,11 +391,36 @@ export default function Tribu({ navigation }) {
                 setExoditoSeleccionado(exodito);
                 setModalEditarVisible(true);
               }
-
             }}
           />
         ))}
       </ScrollView>
+
+      {/* Botones Flotantes */}
+      {modo === 'asistencia' && (
+        <TouchableOpacity style={styles.btnFlotante} onPress={enviarAsistencia} activeOpacity={0.85}>
+          <Ionicons name="send" size={20} color="#fff" />
+          <Text style={styles.btnFlotanteText}>Enviar Asistencia</Text>
+        </TouchableOpacity>
+      )}
+
+      {modo === 'editar' && (
+        <TouchableOpacity style={styles.btnFlotante} onPress={agregarNuevoExodito} activeOpacity={0.85}>
+          <Ionicons name="add" size={24} color="#fff" />
+          <Text style={styles.btnFlotanteText}>Nuevo Exodito</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Toast */}
+      {toastMsg ? (
+        <View style={[styles.toast, toastType === 'success' ? styles.toastSuccess : styles.toastError]}>
+          <Text style={styles.toastText}>{toastMsg}</Text>
+        </View>
+      ) : null}
+
+      <BottomNav navigation={navigation} />
+
+      {/* MODAL EDITAR EXODITO */}
       {modalEditarVisible && exoditoSeleccionado && (
         <Modal
           transparent
@@ -437,13 +434,10 @@ export default function Tribu({ navigation }) {
                 {exoditoSeleccionado.nombre} {exoditoSeleccionado.apellido}
               </Text>
 
-              <Text style={{ marginBottom: 20 }}>
-                Cargo actual: <Text style={{ fontWeight: 'bold' }}>
-                  {exoditoSeleccionado.cargo}
-                </Text>
+              <Text style={styles.modalSubTitle}>
+                Cargo actual: <Text style={{ fontWeight: 'bold', color: '#FF8C42' }}>{exoditoSeleccionado.cargo}</Text>
               </Text>
 
-              {/* PROMOVER */}
               <TouchableOpacity
                 style={styles.modalActionBtn}
                 onPress={() => {
@@ -455,7 +449,6 @@ export default function Tribu({ navigation }) {
                 <Text style={styles.modalActionText}>Promover</Text>
               </TouchableOpacity>
 
-              {/* DEGRADAR */}
               <TouchableOpacity
                 style={styles.modalActionBtn}
                 onPress={() => {
@@ -467,58 +460,29 @@ export default function Tribu({ navigation }) {
                 <Text style={styles.modalActionText}>Degradar</Text>
               </TouchableOpacity>
 
-              {/* ELIMINAR */}
               <TouchableOpacity
-                style={[styles.modalActionBtn, { marginTop: 10 }]}
+                style={styles.modalActionBtn}
                 onPress={() => {
                   setModalEditarVisible(false);
                   eliminarExodito(exoditoSeleccionado);
                 }}
               >
-                <Ionicons name="trash" size={22} color="#e74c3c" />
-                <Text style={[styles.modalActionText, { color: '#e74c3c' }]}>
-                  Eliminar
-                </Text>
+                <Ionicons name="trash-outline" size={22} color="#e74c3c" />
+                <Text style={[styles.modalActionText, { color: '#e74c3c' }]}>Eliminar</Text>
               </TouchableOpacity>
 
-              {/* CANCELAR */}
               <TouchableOpacity
                 style={styles.cancelBtnModal}
                 onPress={() => setModalEditarVisible(false)}
               >
-                <Text style={{ fontWeight: '600', color: 'black' }}>Cancelar</Text>
+                <Text style={{ fontWeight: '600', color: '#666' }}>Cancelar</Text>
               </TouchableOpacity>
             </View>
           </View>
         </Modal>
       )}
 
-
-      {/* Botones flotantes según modo */}
-      {modo === 'asistencia' && (
-        <TouchableOpacity style={styles.btnFlotante} onPress={enviarAsistencia}>
-          <Ionicons name="send" size={24} color="#fff" />
-          <Text style={styles.btnFlotanteText}>Enviar Asistencia</Text>
-        </TouchableOpacity>
-      )}
-
-      {modo === 'editar' && (
-        <TouchableOpacity style={styles.btnFlotante} onPress={agregarNuevoExodito}>
-          <Ionicons name="add" size={28} color="#fff" />
-          <Text style={styles.btnFlotanteText}>Nuevo</Text>
-        </TouchableOpacity>
-      )}
-
-      {/* Toast de feedback */}
-      {toastMsg ? (
-        <View style={[styles.toast, toastType === 'success' ? styles.toastSuccess : styles.toastError]}>
-          <Text style={styles.toastText}>{toastMsg}</Text>
-        </View>
-      ) : null}
-
-      <BottomNav navigation={navigation} />
-
-      {/* MODAL SELECTOR DE TRIBUS (solo coordinación) */}
+      {/* MODAL SELECTOR DE TRIBUS */}
       <Modal
         transparent
         animationType="slide"
@@ -531,7 +495,7 @@ export default function Tribu({ navigation }) {
             <FlatList
               data={todasLasTribus}
               keyExtractor={(item) => item.id_tribu.toString()}
-              contentContainerStyle={{ width: '100%' }}
+              contentContainerStyle={{ width: '100%', paddingBottom: 10 }}
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={[
@@ -561,12 +525,13 @@ export default function Tribu({ navigation }) {
               style={styles.cancelBtnModal}
               onPress={() => setModalTribusVisible(false)}
             >
-              <Text style={{ fontWeight: '600', color: 'black' }}>Cancelar</Text>
+              <Text style={{ fontWeight: '600', color: '#666' }}>Cancelar</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
+      {/* MODAL NUEVO EXODITO */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -580,6 +545,7 @@ export default function Tribu({ navigation }) {
             <TextInput
               style={styles.input}
               placeholder="Nombre"
+              placeholderTextColor="#999"
               value={nuevoNombre}
               onChangeText={setNuevoNombre}
               autoFocus
@@ -587,9 +553,9 @@ export default function Tribu({ navigation }) {
             <TextInput
               style={styles.input}
               placeholder="Apellido"
+              placeholderTextColor="#999"
               value={nuevoApellido}
               onChangeText={setNuevoApellido}
-              autoFocus
             />
 
             <View style={styles.modalButtons}>
@@ -598,14 +564,12 @@ export default function Tribu({ navigation }) {
                 activeOpacity={0.8}
                 onPress={() => setModalNuevoVisible(false)}
               >
-                <Text style={[styles.modalBtnText, { color: '#333' }]}>
-                  Cancelar
-                </Text>
+                <Text style={[styles.modalBtnText, { color: '#333' }]}>Cancelar</Text>
               </TouchableOpacity>
-
 
               <TouchableOpacity
                 style={[styles.modalBtn, styles.confirmBtn]}
+                activeOpacity={0.8}
                 onPress={async () => {
                   if (!nuevoNombre.trim() || !nuevoApellido.trim()) {
                     showToast('Nombre y apellido son obligatorios');
@@ -628,18 +592,16 @@ export default function Tribu({ navigation }) {
                     });
 
                     const data = await res.json();
-
                     if (!res.ok) {
                       showToast(data.error || 'No se pudo crear el exodito');
                       return;
                     }
 
-
                     setExoditos([...exoditos, data.exodito]);
-
                     setNuevoNombre('');
                     setNuevoApellido('');
                     setModalNuevoVisible(false);
+                    showToast('Exodito agregado con éxito', 'success');
                   } catch (err) {
                     console.error(err);
                     showToast('Error de conexión con el servidor');
@@ -652,6 +614,7 @@ export default function Tribu({ navigation }) {
           </View>
         </View>
       </Modal>
+
       {/* MODAL CONFIRMAR ELIMINACIÓN */}
       <Modal
         transparent
@@ -661,11 +624,13 @@ export default function Tribu({ navigation }) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Ionicons name="warning" size={36} color="#e74c3c" style={{ marginBottom: 12 }} />
+            <View style={styles.warningIconContainer}>
+              <Ionicons name="warning-outline" size={36} color="#e74c3c" />
+            </View>
             <Text style={styles.modalTitle}>¿Eliminar exodito?</Text>
-            <Text style={{ textAlign: 'center', color: '#555', marginBottom: 24 }}>
+            <Text style={styles.modalSubTitleCenter}>
               ¿Estás seguro de eliminar a{' '}
-              <Text style={{ fontWeight: 'bold' }}>
+              <Text style={{ fontWeight: 'bold', color: '#333' }}>
                 {exoditoAEliminar?.nombre} {exoditoAEliminar?.apellido}
               </Text>?{'\n'}Esta acción no se puede deshacer.
             </Text>
@@ -673,12 +638,14 @@ export default function Tribu({ navigation }) {
               <TouchableOpacity
                 style={[styles.modalBtn, styles.cancelBtn]}
                 onPress={() => { setConfirmDeleteVisible(false); setExoditoAEliminar(null); }}
+                activeOpacity={0.8}
               >
                 <Text style={[styles.modalBtnText, { color: '#333' }]}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBtn, { backgroundColor: '#e74c3c' }]}
                 onPress={confirmarEliminacion}
+                activeOpacity={0.8}
               >
                 <Text style={styles.modalBtnText}>Eliminar</Text>
               </TouchableOpacity>
@@ -686,7 +653,6 @@ export default function Tribu({ navigation }) {
           </View>
         </View>
       </Modal>
-
     </View>
   );
 }
@@ -694,86 +660,80 @@ export default function Tribu({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    marginTop: 30,
+    backgroundColor: '#F8F9FA',
+    paddingTop: 30,
   },
-
   selectorTribu: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 20,
-    marginTop: 10,
+    marginHorizontal: 16,
+    marginTop: 8,
     marginBottom: 4,
-    backgroundColor: '#FFF3EA',
-    borderRadius: 12,
+    backgroundColor: '#FFF',
+    borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#FFCBA0',
+    borderColor: '#FFE5D0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
     gap: 10,
   },
-
   selectorTribuText: {
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
     color: '#333',
   },
-
   tribuTabsRow: {
     flexDirection: 'row',
-    marginHorizontal: 20,
-    marginTop: 10,
+    marginHorizontal: 16,
+    marginTop: 8,
     marginBottom: 4,
     gap: 10,
   },
-
   tribuTab: {
     flex: 1,
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 12,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#FFF',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#E2E8F0',
   },
-
   tribuTabActiva: {
     backgroundColor: '#FF8C42',
     borderColor: '#FF8C42',
   },
-
   tribuTabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#555',
+    color: '#64748B',
   },
-
   tribuTabTextActiva: {
     color: '#fff',
   },
-
   placeholderContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
     gap: 12,
   },
-
   placeholderTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#888',
+    color: '#475569',
   },
-
   placeholderSub: {
     fontSize: 14,
-    color: '#aaa',
+    color: '#94A3B8',
     textAlign: 'center',
     marginHorizontal: 30,
   },
-
   tribusListItem: {
     width: '100%',
     flexDirection: 'row',
@@ -781,150 +741,186 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 14,
     paddingHorizontal: 16,
-    borderRadius: 10,
-    marginBottom: 6,
-    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
-
   tribusListItemActivo: {
     backgroundColor: '#FF8C42',
+    borderColor: '#FF8C42',
   },
-
   tribusListItemText: {
-    fontSize: 16,
-    color: '#333',
+    fontSize: 15,
+    color: '#334155',
+    fontWeight: '500',
   },
-
   modosContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: '#f8f8f8',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#F1F5F9',
   },
-
   modoBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 30,
-    backgroundColor: '#eee',
-    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+    gap: 6,
   },
-
   modoBtnActivo: {
     backgroundColor: '#FF8C42',
   },
-
   modoBtnText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#555',
+    color: '#64748B',
   },
-
+  modoBtnTextActivo: {
+    color: '#fff',
+  },
   content: {
-    padding: 20,
-    paddingBottom: 140,
+    padding: 16,
+    paddingBottom: 130,
   },
-
   leyenda: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginVertical: 10,
-    padding: 12,
-    backgroundColor: '#f8f8f8',
+    marginVertical: 6,
+    padding: 10,
+    backgroundColor: '#FFF',
     borderRadius: 12,
-    marginBottom: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
-
+  leyendaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   leyendaText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
-    color: '#333',
+    color: '#475569',
   },
-
   infoAsistencia: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e8f4ff',
+    backgroundColor: '#E0F2FE',
     padding: 12,
-    borderRadius: 10,
-    marginBottom: 20,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
     gap: 8,
   },
-
   infoText: {
-    fontSize: 14,
-    color: '#0066cc',
+    fontSize: 13,
+    color: '#0369A1',
     flex: 1,
   },
-
   btnFlotante: {
-    marginBottom: 100,
+    position: 'absolute',
+    bottom: 85,
+    alignSelf: 'center',
     backgroundColor: '#FF8C42',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 50,
+    paddingVertical: 12,
+    paddingHorizontal: 22,
+    borderRadius: 30,
     elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
+    shadowColor: '#FF8C42',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
     gap: 8,
+    zIndex: 10,
   },
-
   btnFlotanteText: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 15,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
-    backgroundColor: 'white',
+    backgroundColor: '#FFF',
     padding: 24,
-    borderRadius: 16,
-    width: '85%',
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 380,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 15,
+    elevation: 8,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalSubTitle: {
+    fontSize: 14,
+    color: '#64748B',
     marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalSubTitleCenter: {
+    fontSize: 14,
+    color: '#64748B',
+    marginBottom: 20,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  warningIconContainer: {
+    backgroundColor: '#FEE2E2',
+    padding: 12,
+    borderRadius: 50,
+    marginBottom: 12,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
     padding: 12,
     width: '100%',
-    marginBottom: 20,
-    fontSize: 16,
+    marginBottom: 14,
+    fontSize: 15,
+    color: '#1E293B',
   },
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
+    gap: 10,
   },
   modalBtn: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 10,
-    marginHorizontal: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelBtn: {
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#F1F5F9',
   },
   confirmBtn: {
     backgroundColor: '#FF8C42',
@@ -932,31 +928,32 @@ const styles = StyleSheet.create({
   modalBtnText: {
     color: '#fff',
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: 15,
   },
   modalActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
     paddingVertical: 12,
-  },
-
-  modalActionText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-
-  cancelBtnModal: {
-    marginTop: 20,
-    paddingVertical: 12,
-    alignItems: 'center',
-    color: 'black',
+    width: '100%',
+    paddingHorizontal: 16,
     borderRadius: 10,
+    marginVertical: 2,
   },
-
+  modalActionText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  cancelBtnModal: {
+    marginTop: 16,
+    paddingVertical: 8,
+    alignItems: 'center',
+    width: '100%',
+  },
   toast: {
     position: 'absolute',
-    bottom: 100,
+    bottom: 90,
     left: 20,
     right: 20,
     padding: 14,
@@ -964,12 +961,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 999,
     elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   toastSuccess: {
-    backgroundColor: '#2ecc71',
+    backgroundColor: '#10B981',
   },
   toastError: {
-    backgroundColor: '#e74c3c',
+    backgroundColor: '#EF4444',
   },
   toastText: {
     color: '#fff',
@@ -977,25 +978,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
   },
-
   driveBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 20,
-    marginTop: 10,
+    marginHorizontal: 16,
+    marginTop: 8,
     marginBottom: 4,
-    backgroundColor: '#1a73e8',
-    borderRadius: 12,
-    paddingVertical: 11,
+    backgroundColor: '#2563EB',
+    borderRadius: 14,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     gap: 8,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
   },
-
   driveBtnText: {
     color: '#fff',
     fontWeight: '700',
-    fontSize: 15,
+    fontSize: 14,
   },
-
 });

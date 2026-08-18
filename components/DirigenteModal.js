@@ -1,8 +1,9 @@
-import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
+import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Platform, Image } from 'react-native';
 import { useState, useEffect } from 'react';
 import { API_URL } from '../api';
 import { Picker } from '@react-native-picker/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function DirigenteModal({ visible, dirigente, onClose, onSaved }) {
   const [rol, setRol] = useState('');
@@ -11,8 +12,8 @@ export default function DirigenteModal({ visible, dirigente, onClose, onSaved })
   const [idTribuSecundaria, setIdTribuSecundaria] = useState(0);
   const [tribus, setTribus] = useState([]);
   const [tribusOrdenadas, setTribusOrdenadas] = useState([]);
-  useEffect(() => {
 
+  useEffect(() => {
     const tribusOrdenadas = [...tribus].sort((a, b) => a.id_tribu - b.id_tribu);
     setTribusOrdenadas(tribusOrdenadas);
   }, [tribus]);
@@ -61,6 +62,7 @@ export default function DirigenteModal({ visible, dirigente, onClose, onSaved })
       alert('Error de conexión');
     }
   };
+
   const eliminarDirigente = () => {
     if (Platform.OS === 'web') {
       const confirmar = window.confirm(
@@ -82,6 +84,7 @@ export default function DirigenteModal({ visible, dirigente, onClose, onSaved })
       );
     }
   };
+
   const confirmarEliminacion = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
@@ -92,7 +95,6 @@ export default function DirigenteModal({ visible, dirigente, onClose, onSaved })
         },
       });
 
-      // Algunos servidores devuelven cuerpo vacío en DELETE, esto evita crash
       let data = {};
       const text = await res.text();
       if (text) {
@@ -129,14 +131,20 @@ export default function DirigenteModal({ visible, dirigente, onClose, onSaved })
   };
 
   if (!dirigente) return null;
-  console.log('ID TRIBU DIRIGENTE:', dirigente.id_tribu);
-  console.log('ID TRIBU STATE:', idTribu);
-  console.log('TRIBUS:', tribusOrdenadas.map(t => t.id_tribu));
 
   return (
     <Modal transparent visible={visible} animationType="fade">
       <View style={styles.overlay}>
         <View style={styles.modal}>
+
+          {/* Contenedor de la foto del dirigente */}
+          <View style={styles.avatarContainer}>
+            {dirigente.foto ? (
+              <Image source={{ uri: dirigente.foto }} style={styles.avatarImage} />
+            ) : (
+              <Ionicons name="person" size={32} color="#FFA726" />
+            )}
+          </View>
 
           <Text style={styles.title}>
             {dirigente.nombre} {dirigente.apellido}
@@ -156,16 +164,15 @@ export default function DirigenteModal({ visible, dirigente, onClose, onSaved })
               El comité es automático para este rol
             </Text>
           )}
+
           <Picker selectedValue={comite} onValueChange={setComite}
             enabled={!["Coordinación"].includes(rol)}>
-
             <Picker.Item label="Seleccionar comité" value="" />
             <Picker.Item label="Asistencia" value="Asistencia" />
             <Picker.Item label="Religioso" value="Religioso" />
             <Picker.Item label="Puntos" value="Puntos" />
             <Picker.Item label="Integración" value="Integración" />
             <Picker.Item label="Redes" value="Redes" />
-
           </Picker>
 
           <Picker selectedValue={idTribu} onValueChange={value => setIdTribu(value)}>
@@ -193,14 +200,13 @@ export default function DirigenteModal({ visible, dirigente, onClose, onSaved })
               ))}
           </Picker>
 
-
           <View style={styles.buttons}>
             <TouchableOpacity onPress={onClose} style={styles.cancel}>
               <Text>Cancelar</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={guardarCambios} style={styles.save}>
-              <Text style={{ color: '#fff',fontWeight:'bold' }}>Guardar</Text>
+              <Text style={{ color: '#fff', fontWeight: 'bold' }}>Guardar</Text>
             </TouchableOpacity>
 
             {/* ELIMINAR */}
@@ -227,19 +233,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 20,
     padding: 20,
+    maxHeight: '90%',
+  },
+  avatarContainer: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#FFF3E0',
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#FFA726',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   title: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 15,
     textAlign: 'center',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 10,
   },
   buttons: {
     flexDirection: 'row',
@@ -267,14 +285,6 @@ const styles = StyleSheet.create({
     color: '#C0392B',
     fontWeight: 'bold',
   },
-
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-
   pickerLabel: {
     fontSize: 13,
     fontWeight: '600',
@@ -283,5 +293,4 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     marginLeft: 2,
   },
-
 });

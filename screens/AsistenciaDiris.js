@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, FlatList, ActivityIndicator,
-  StyleSheet, TouchableOpacity, Platform, Modal, Alert
+  StyleSheet, TouchableOpacity, Platform, Modal, Alert, Image
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../api';
@@ -10,23 +10,20 @@ import CodigoManualModal from '../components/CodigoManualModal';
 import SectionTitle from '../components/TituloSeccion';
 import { Ionicons } from '@expo/vector-icons';
 
-// DateTimePicker solo en móvil
 let DateTimePicker = null;
 if (Platform.OS !== 'web') {
   DateTimePicker = require('@react-native-community/datetimepicker').default;
 }
 
-// Devuelve fecha local Colombia (UTC-5) como "YYYY-MM-DD"
 const getFechaLocal = () => {
   const ahora = new Date();
   const local = new Date(ahora.getTime() + (-5 * 60 * 60 * 1000));
   return local.toISOString().split('T')[0];
 };
 
-// Parsea "YYYY-MM-DD" como fecha local evitando el bug UTC
 const parseFechaLocal = (fechaStr) => {
   const [y, m, d] = fechaStr.split('-').map(Number);
-  return new Date(y, m - 1, d); // sin zona horaria → local
+  return new Date(y, m - 1, d);
 };
 
 export default function AsistenciaScreen({ navigation }) {
@@ -40,8 +37,8 @@ export default function AsistenciaScreen({ navigation }) {
 
   const [token, setToken] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
-  const [accionModal, setAccionModal] = useState(false); // modal elegir QR o código
-  const [editarModal, setEditarModal] = useState(false); // modal marcar Tarde
+  const [accionModal, setAccionModal] = useState(false);
+  const [editarModal, setEditarModal] = useState(false);
   const [confirmModal, setConfirmModal] = useState({ visible: false, tipo: null });
 
   const showToast = (msg) => {
@@ -56,10 +53,6 @@ export default function AsistenciaScreen({ navigation }) {
   useEffect(() => {
     if (token) cargarAsistencia();
   }, [fecha, token]);
-
-  /* ===============================
-      Helpers visuales & Fecha
-  =============================== */
 
   const estadoColor = (estado) => {
     if (estado === 'Presente') return '#4CAF50';
@@ -83,9 +76,6 @@ export default function AsistenciaScreen({ navigation }) {
     }
   };
 
-  /* ===============================
-     Backend
-  =============================== */
   const eliminarAsistencia = async (tipo) => {
     const endpoint = tipo === 'dirigentes'
       ? `${API_URL}/asistencia/dirigentes`
@@ -165,9 +155,6 @@ export default function AsistenciaScreen({ navigation }) {
     setEditarModal(true);
   };
 
-  /* ===============================
-     Loading
-  =============================== */
   if (loading) {
     return (
       <View style={styles.centerContainer}>
@@ -177,12 +164,8 @@ export default function AsistenciaScreen({ navigation }) {
     );
   }
 
-  /* ===============================
-     UI
-  =============================== */
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={{ marginTop: Platform.OS === 'ios' ? 40 : 15 }}>
         <SectionTitle 
           title="Asistencia" 
@@ -210,7 +193,6 @@ export default function AsistenciaScreen({ navigation }) {
         </TouchableOpacity>
       </View>
       
-      {/* Botón Recargar Mejorado */}
       <View style={styles.reloadContainer}>
         <TouchableOpacity style={styles.reloadBtn} onPress={cargarAsistencia}>
           <Ionicons name="refresh" size={18} color="#fff" />
@@ -218,7 +200,6 @@ export default function AsistenciaScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* Stats */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
           <Text style={styles.statNumber}>
@@ -238,7 +219,6 @@ export default function AsistenciaScreen({ navigation }) {
         </View>
       </View>
 
-      {/* Lista */}
       <FlatList
         data={data}
         keyExtractor={(item) => item.id_dirigente.toString()}
@@ -250,10 +230,21 @@ export default function AsistenciaScreen({ navigation }) {
               item.estado ? styles.cardPresent : styles.cardAbsent
             ]}>
               <View style={styles.cardHeader}>
-                <Text style={styles.name}>
-                  {item.nombre} {item.apellido}
-                </Text>
-                <Text style={styles.role}>{item.rol}</Text>
+                {/* Contenedor de la foto del dirigente o icono predeterminado */}
+                <View style={styles.avatarContainer}>
+                  {item.foto ? (
+                    <Image source={{ uri: item.foto }} style={styles.avatarImage} />
+                  ) : (
+                    <Ionicons name="person" size={18} color="#FFA726" />
+                  )}
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.name}>
+                    {item.nombre} {item.apellido}
+                  </Text>
+                  <Text style={styles.role}>{item.rol}</Text>
+                </View>
               </View>
 
               <View style={styles.presentContainer}>
@@ -308,7 +299,6 @@ export default function AsistenciaScreen({ navigation }) {
         }}
       />
 
-      {/* PICKER DE FECHA */}
       {mostrarPicker && Platform.OS !== 'web' && DateTimePicker && (
         <DateTimePicker
           value={parseFechaLocal(fecha)}
@@ -348,7 +338,6 @@ export default function AsistenciaScreen({ navigation }) {
         </Modal>
       )}
 
-      {/* MODALES de acciones y eliminación... */}
       <Modal transparent animationType="fade" visible={accionModal} onRequestClose={() => setAccionModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
@@ -412,7 +401,6 @@ export default function AsistenciaScreen({ navigation }) {
         </View>
       </Modal>
 
-      {/* Toast */}
       {toastMsg ? (
         <View style={styles.toast}>
           <Text style={styles.toastText}>{toastMsg}</Text>
@@ -521,23 +509,39 @@ const styles = StyleSheet.create({
   cardAbsent: { borderLeftWidth: 4, borderLeftColor: '#F44336' },
   cardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
   },
+  avatarContainer: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#FFF3E0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
   name: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '600',
     color: '#333',
     flex: 1,
   },
   role: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#666',
     backgroundColor: '#f0f0f0',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginTop: 2,
   },
   presentContainer: {
     flexDirection: 'row',
