@@ -105,10 +105,11 @@ export default function Menu({ navigation }) {
            {(rol === 'Coordinación' || rol === 'Nombrado') && (
           <MenuItem icon="ribbon-outline" label="Calificación Asambleas" proximamente={true} onOpenProximamente={() => setModalProximamenteVisible(true)}/>
            )}
-           <MenuItem icon="dice-outline" label="Material"  onPress={() => navigation.navigate('Material')}/>
+           <MenuItem icon="earth-outline" label="Mi Asamblea"  onPress={() => navigation.navigate('MisAsambleas')}/>
+          <MenuItem icon="dice-outline" label="Material"  onPress={() => navigation.navigate('Material')}/>
           <MenuItem icon="document-text-outline" label="Actas" onPress={() => Linking.openURL('https://drive.google.com/drive/folders/1lzrdK3J9b7JVNWCG8GT0Njuz2-LogfOB')} />
           
-          <MenuItem icon="time-outline" label="Asambleas" onPress={() => Linking.openURL('https://drive.google.com/drive/folders/17cBGA5hulhUl53DNrEYgMAtbbtq-AGpW')} />
+          <MenuItem icon="time-outline" label="Docs Asambleas" onPress={() => Linking.openURL('https://drive.google.com/drive/folders/17cBGA5hulhUl53DNrEYgMAtbbtq-AGpW')} />
           <MenuItem icon="folder-open-outline" label="Carpeta General" onPress={() => Linking.openURL('https://drive.google.com/drive/folders/1xU_t1-8voZRPcwhQWz5_U38-D7liQzD-?usp=sharing')} />
           
           <MenuItem icon="lock-closed-outline" label="Contraseña" onPress={() => setModalPassVisible(true)}/>

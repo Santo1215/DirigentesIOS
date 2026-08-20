@@ -136,8 +136,9 @@ export default function ModalAsignarMulta({
                   {(rol === 'Coordinación') && (
                   <Picker.Item label="Retraso" value="Retraso" color="#1E293B" />
                   )}
-                  
+                  {(rol === 'Coordinación') && (
                   <Picker.Item label="Inasistencia injustificada" value="Inasistencia injustificada" color="#1E293B" />
+                  )}
                   {(rol === 'Coordinación') && (
                     <Picker.Item label="Símbolos" value="Símbolos" color="#1E293B" />
                   )}

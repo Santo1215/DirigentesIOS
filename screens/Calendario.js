@@ -378,23 +378,44 @@ export default function Calendario({ navigation }) {
             
             <TextInput style={styles.input} placeholder="Título" value={nuevaActividad.titulo} onChangeText={(text) => setNuevaActividad({ ...nuevaActividad, titulo: text })} />
             
-            <View style={{ marginBottom: 10 }}>
+            <View style={{ marginBottom: 15 }}>
               <Text style={{ color: '#555', marginBottom: 5 }}>Fecha:</Text>
-              {Platform.OS === 'android' && (
-                <TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setShowDatePicker(true)}>
-                  <Text>{nuevaActividad.fechaObj.toISOString().split('T')[0]}</Text>
-                </TouchableOpacity>
-              )}
-              {(showDatePicker || Platform.OS === 'ios') && (
+              
+              {Platform.OS === 'ios' ? (
+                /* SOLUCIÓN iOS: En iOS, mostramos el botón nativo de calendario directamente */
                 <DateTimePicker 
                   value={nuevaActividad.fechaObj} 
                   mode="date" 
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'} 
+                  display="default" 
+                  locale="es-ES"
                   onChange={(event, selectedDate) => {
-                    setShowDatePicker(Platform.OS === 'ios');
-                    setNuevaActividad({ ...nuevaActividad, fechaObj: selectedDate || nuevaActividad.fechaObj });
+                    if (selectedDate) {
+                      setNuevaActividad({ ...nuevaActividad, fechaObj: selectedDate });
+                    }
                   }} 
+                  style={{ alignSelf: 'flex-start' }}
                 />
+              ) : (
+                /* SOLUCIÓN ANDROID / WEB: Usamos el botón táctil para abrir el modal popup */
+                <>
+                  <TouchableOpacity style={[styles.input, { justifyContent: 'center', marginBottom: 0 }]} onPress={() => setShowDatePicker(true)}>
+                    <Text style={{ color: '#333' }}>{nuevaActividad.fechaObj.toISOString().split('T')[0]}</Text>
+                  </TouchableOpacity>
+                  
+                  {showDatePicker && (
+                    <DateTimePicker 
+                      value={nuevaActividad.fechaObj} 
+                      mode="date" 
+                      display="default" 
+                      onChange={(event, selectedDate) => {
+                        setShowDatePicker(false);
+                        if (selectedDate) {
+                          setNuevaActividad({ ...nuevaActividad, fechaObj: selectedDate });
+                        }
+                      }} 
+                    />
+                  )}
+                </>
               )}
             </View>
 
@@ -461,31 +482,8 @@ const styles = StyleSheet.create({
   previewCardSub: { fontSize: 12, color: '#666' },
   detailLabel: { fontSize: 12, fontWeight: 'bold', color: '#888', marginTop: 8 },
   detailValue: { fontSize: 15, color: '#333', backgroundColor: '#f5f5f5', padding: 8, borderRadius: 6, marginTop: 2 },
-  dirigenteItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    padding: 6,
-    borderRadius: 6,
-    marginTop: 4,
-  },
-  avatarContainer: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#e0e0e0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-    overflow: 'hidden',
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  detailValueInline: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
+  dirigenteItemRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f5f5f5', padding: 6, borderRadius: 6, marginTop: 4 },
+  avatarContainer: { width: 26, height: 26, borderRadius: 13, backgroundColor: '#e0e0e0', alignItems: 'center', justifyContent: 'center', marginRight: 8, overflow: 'hidden' },
+  avatarImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+  detailValueInline: { fontSize: 14, fontWeight: '500' },
 });
