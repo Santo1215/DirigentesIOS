@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, Modal, 
-  TextInput, Alert, Platform, ScrollView, Image
+  TextInput, Alert, ScrollView, Image 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { API_URL } from '../api';
 import { UserContext } from '../context/UserContext'; 
 import SectionTitle from '../components/TituloSeccion';
 import BottomNav from '../components/navbar';
 import WaveBackground from '../components/WaveBackground';
+import FechaPicker from '../components/FechaPicker'; // <-- Importamos el componente
 
 LocaleConfig.locales['es'] = {
   monthNames: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
@@ -39,7 +39,6 @@ export default function Calendario({ navigation }) {
   // Estados para Crear Actividad
   const [modalActividadVisible, setModalActividadVisible] = useState(false);
   const [modalTipoVisible, setModalTipoVisible] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [nuevaActividad, setNuevaActividad] = useState({
     titulo: '', descripcion: '', fechaObj: new Date(), 
     responsable: user?.dirigente ? `${user.dirigente.nombre} ${user.dirigente.apellido}` : '', 
@@ -102,7 +101,6 @@ export default function Calendario({ navigation }) {
     cargarTodosLosDirigentes();
   }, []);
 
-  // Lógica de Asistencia
   const estaBloqueadaConfirmacion = (fechaActividadStr) => {
     if (!fechaActividadStr) return false;
     const fechaAct = new Date(`${fechaActividadStr.substring(0, 10)}T00:00:00`);
@@ -138,7 +136,6 @@ export default function Calendario({ navigation }) {
     }
   };
 
-  // Lógica de Creación de Actividades
   const abrirModalCrear = () => {
     const fechaBase = diaSeleccionado ? new Date(`${diaSeleccionado}T12:00:00`) : new Date();
     setNuevaActividad({
@@ -180,7 +177,6 @@ export default function Calendario({ navigation }) {
     } catch (error) { console.error('Error guardando actividad:', error); }
   };
 
-  // Cálculos para listas de asistentes
   const losQueVan = asistentes.filter(a => a.estado === 'si');
   const losQueNoVan = asistentes.filter(a => a.estado === 'no');
   const sinConfirmar = todosLosDirigentes.filter(
@@ -277,9 +273,7 @@ export default function Calendario({ navigation }) {
                       style={[styles.button, { backgroundColor: miEstadoAsistencia === 'si' ? '#4CAF50' : '#e0e0e0' }]} 
                       onPress={() => registrarAsistencia('si')}
                     >
-                      <Text style={{ color: miEstadoAsistencia === 'si' ? '#fff' : '#333', fontWeight: 'bold' }}>
-                        Sí Asistiré
-                      </Text>
+                      <Text style={{ color: miEstadoAsistencia === 'si' ? '#fff' : '#333', fontWeight: 'bold' }}>Sí Asistiré</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity 
@@ -290,74 +284,42 @@ export default function Calendario({ navigation }) {
                       onPress={() => registrarAsistencia('no')}
                       disabled={estaBloqueadaConfirmacion(actividadSeleccionada.fecha)}
                     >
-                      <Text style={{ color: miEstadoAsistencia === 'no' ? '#fff' : '#333', fontWeight: 'bold' }}>
-                        No Asistiré
-                      </Text>
+                      <Text style={{ color: miEstadoAsistencia === 'no' ? '#fff' : '#333', fontWeight: 'bold' }}>No Asistiré</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
 
-                {/* LISTAS PARA COORDINADORES / COMITÉ */}
                 {(rol === 'Coordinación' || comite === actividadSeleccionada.tipo) && (
                   <View style={{ marginTop: 25, borderTopWidth: 1, borderColor: '#eee', paddingTop: 10 }}>
-                    
-                    {/* Confirmaron Asistencia */}
                     <Text style={styles.detailLabel}>Confirmaron Asistencia ({losQueVan.length}):</Text>
-                    <View style={{ paddingVertical: 5 }}>
-                      {losQueVan.length === 0 ? <Text style={styles.detailValue}>Nadie ha confirmado.</Text> : 
-                        losQueVan.map(a => (
-                          <View key={a.id_dirigente} style={styles.dirigenteItemRow}>
-                            <View style={styles.avatarContainer}>
-                              {a.foto ? (
-                                <Image source={{ uri: a.foto }} style={styles.avatarImage} />
-                              ) : (
-                                <Ionicons name="person" size={14} color="#2e7d32" />
-                              )}
-                            </View>
-                            <Text style={[styles.detailValueInline, { color: '#2e7d32' }]}>{a.nombre} {a.apellido}</Text>
-                          </View>
-                        ))
-                      }
-                    </View>
+                    {losQueVan.map(a => (
+                      <View key={a.id_dirigente} style={styles.dirigenteItemRow}>
+                        <View style={styles.avatarContainer}>
+                          {a.foto ? <Image source={{ uri: a.foto }} style={styles.avatarImage} /> : <Ionicons name="person" size={14} color="#2e7d32" />}
+                        </View>
+                        <Text style={[styles.detailValueInline, { color: '#2e7d32' }]}>{a.nombre} {a.apellido}</Text>
+                      </View>
+                    ))}
 
-                    {/* No Asistirán */}
                     <Text style={[styles.detailLabel, { marginTop: 10 }]}>No Asistirán ({losQueNoVan.length}):</Text>
-                    <View style={{ paddingVertical: 5 }}>
-                      {losQueNoVan.length === 0 ? <Text style={styles.detailValue}>Nadie ha cancelado.</Text> : 
-                        losQueNoVan.map(a => (
-                          <View key={a.id_dirigente} style={styles.dirigenteItemRow}>
-                            <View style={styles.avatarContainer}>
-                              {a.foto ? (
-                                <Image source={{ uri: a.foto }} style={styles.avatarImage} />
-                              ) : (
-                                <Ionicons name="person" size={14} color="#d32f2f" />
-                              )}
-                            </View>
-                            <Text style={[styles.detailValueInline, { color: '#d32f2f' }]}>{a.nombre} {a.apellido}</Text>
-                          </View>
-                        ))
-                      }
-                    </View>
+                    {losQueNoVan.map(a => (
+                      <View key={a.id_dirigente} style={styles.dirigenteItemRow}>
+                        <View style={styles.avatarContainer}>
+                          {a.foto ? <Image source={{ uri: a.foto }} style={styles.avatarImage} /> : <Ionicons name="person" size={14} color="#d32f2f" />}
+                        </View>
+                        <Text style={[styles.detailValueInline, { color: '#d32f2f' }]}>{a.nombre} {a.apellido}</Text>
+                      </View>
+                    ))}
 
-                    {/* Sin Confirmar */}
                     <Text style={[styles.detailLabel, { marginTop: 10 }]}>Sin Confirmar ({sinConfirmar.length}):</Text>
-                    <View style={{ paddingVertical: 5 }}>
-                      {sinConfirmar.length === 0 ? <Text style={styles.detailValue}>Todos han respondido.</Text> : 
-                        sinConfirmar.map(d => (
-                          <View key={d.id_dirigente} style={styles.dirigenteItemRow}>
-                            <View style={styles.avatarContainer}>
-                              {d.foto ? (
-                                <Image source={{ uri: d.foto }} style={styles.avatarImage} />
-                              ) : (
-                                <Ionicons name="person" size={14} color="#888" />
-                              )}
-                            </View>
-                            <Text style={[styles.detailValueInline, { color: '#888' }]}>{d.nombre} {d.apellido}</Text>
-                          </View>
-                        ))
-                      }
-                    </View>
-
+                    {sinConfirmar.map(d => (
+                      <View key={d.id_dirigente} style={styles.dirigenteItemRow}>
+                        <View style={styles.avatarContainer}>
+                          {d.foto ? <Image source={{ uri: d.foto }} style={styles.avatarImage} /> : <Ionicons name="person" size={14} color="#888" />}
+                        </View>
+                        <Text style={[styles.detailValueInline, { color: '#888' }]}>{d.nombre} {d.apellido}</Text>
+                      </View>
+                    ))}
                   </View>
                 )}
               </ScrollView>
@@ -378,46 +340,11 @@ export default function Calendario({ navigation }) {
             
             <TextInput style={styles.input} placeholder="Título" value={nuevaActividad.titulo} onChangeText={(text) => setNuevaActividad({ ...nuevaActividad, titulo: text })} />
             
-            <View style={{ marginBottom: 15 }}>
-              <Text style={{ color: '#555', marginBottom: 5 }}>Fecha:</Text>
-              
-              {Platform.OS === 'ios' ? (
-                /* SOLUCIÓN iOS: En iOS, mostramos el botón nativo de calendario directamente */
-                <DateTimePicker 
-                  value={nuevaActividad.fechaObj} 
-                  mode="date" 
-                  display="default" 
-                  locale="es-ES"
-                  onChange={(event, selectedDate) => {
-                    if (selectedDate) {
-                      setNuevaActividad({ ...nuevaActividad, fechaObj: selectedDate });
-                    }
-                  }} 
-                  style={{ alignSelf: 'flex-start' }}
-                />
-              ) : (
-                /* SOLUCIÓN ANDROID / WEB: Usamos el botón táctil para abrir el modal popup */
-                <>
-                  <TouchableOpacity style={[styles.input, { justifyContent: 'center', marginBottom: 0 }]} onPress={() => setShowDatePicker(true)}>
-                    <Text style={{ color: '#333' }}>{nuevaActividad.fechaObj.toISOString().split('T')[0]}</Text>
-                  </TouchableOpacity>
-                  
-                  {showDatePicker && (
-                    <DateTimePicker 
-                      value={nuevaActividad.fechaObj} 
-                      mode="date" 
-                      display="default" 
-                      onChange={(event, selectedDate) => {
-                        setShowDatePicker(false);
-                        if (selectedDate) {
-                          setNuevaActividad({ ...nuevaActividad, fechaObj: selectedDate });
-                        }
-                      }} 
-                    />
-                  )}
-                </>
-              )}
-            </View>
+            {/* AQUÍ IMPLEMENTAMOS NUESTRO COMPONENTE FECHAPICKER */}
+            <FechaPicker 
+              fechaObj={nuevaActividad.fechaObj}
+              onFechaChange={(nuevaFecha) => setNuevaActividad({ ...nuevaActividad, fechaObj: nuevaFecha })}
+            />
 
             <TextInput style={[styles.input, { backgroundColor: '#e9ecef' }]} placeholder="Responsable" value={nuevaActividad.responsable} editable={false} />
             
@@ -439,7 +366,7 @@ export default function Calendario({ navigation }) {
         </View>
       </Modal>
 
-      {/* MODAL TIPO (Sub-modal de creación) */}
+      {/* MODAL TIPO */}
       <Modal visible={modalTipoVisible} transparent animationType="fade">
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalTipoVisible(false)}>
           <View style={[styles.modalContent, { width: '70%', padding: 10 }]}>

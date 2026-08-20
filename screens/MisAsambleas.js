@@ -9,14 +9,55 @@ import { UserContext } from '../context/UserContext';
 import SectionTitle from '../components/TituloSeccion';
 import BottomNav from '../components/navbar';
 import WaveBackground from '../components/WaveBackground';
-// Asegúrate de que esta ruta coincida con la ubicación de tu archivo ModalProximamente
+import FechaPicker from '../components/FechaPicker';
 import ModalProximamente from '../components/ModalProximamente'; 
 
 export default function MisAsambleas({ navigation }) {
   const { user } = useContext(UserContext);
   
-  // Estados principales
-  const [asambleas, setAsambleas] = useState([]);
+  const idUsuarioActual = user?.dirigente?.id_dirigente || user?.dirigente?.id || 1;
+  const nombreUsuarioActual = user?.dirigente ? `${user.dirigente.nombre} ${user.dirigente.apellido}` : 'Alan Turing';
+
+  // Mock data actualizado con nombres de pioneros de la computación
+  const [asambleas, setAsambleas] = useState([
+    {
+      id: 1,
+      titulo: 'Asamblea General de Inicio de semestre',
+      creadorId: idUsuarioActual, // Creada por mí (Alan Turing)
+      dirigente: nombreUsuarioActual,
+      encargadoPitar: 'Ada Lovelace',
+      encargadoTiempo: 'Grace Hopper',
+      otrosEncargados: 'Linus Torvalds, Margaret Hamilton',
+      materiales: 'Campana (1), Cronómetro (1)',
+      fecha: '2026-08-22',
+      descripcion: 'Asamblea para presentar a los nuevos dirigentes, constará de 6 bases dinamicas y principalmente de juegos para atraer más gente nueva.'
+    },
+    {
+      id: 2,
+      titulo: 'Asamblea del Mejor Amigo',
+      creadorId: 999, // Creada por otro usuario (Steve Jobs)
+      dirigente: 'Steve Jobs',
+      encargadoPitar: 'Steve Wozniak',
+      encargadoTiempo: 'Bill Gates',
+      otrosEncargados: 'Tim Berners-Lee',
+      materiales: 'Proyector (1)',
+      fecha: '2026-08-25',
+      descripcion: 'Presentación de prototipos visuales.'
+    },
+    {
+      id: 3,
+      titulo: 'Precampamento',
+      creadorId: idUsuarioActual, // Creada por mí
+      dirigente: nombreUsuarioActual,
+      encargadoPitar: 'Margaret Hamilton',
+      encargadoTiempo: nombreUsuarioActual,
+      otrosEncargados: 'Ninguno',
+      materiales: 'Megáfono (1), Hojas de registro (50)',
+      fecha: '2026-09-02',
+      descripcion: 'Este precampamento tiene como finalidad introducir a los chicos al campamento dandoles los fundamentos de esta.'
+    }
+  ]);
+
   const [dirigentes, setDirigentes] = useState([]);
   const [materialesDB, setMaterialesDB] = useState([]);
   
@@ -27,12 +68,18 @@ export default function MisAsambleas({ navigation }) {
   const [modalProximamenteVisible, setModalProximamenteVisible] = useState(false);
   const [campoSeleccion, setCampoSeleccion] = useState('');
 
+  // Control de modo Edición
+  const [modoEdicion, setModoEdicion] = useState(false);
+  const [idAsambleaEditando, setIdAsambleaEditando] = useState(null);
+
   // Estados del Formulario
   const [nuevaAsamblea, setNuevaAsamblea] = useState({
     titulo: '',
     encargadoPitar: null, 
     encargadoTiempo: null,
-    otrosEncargados: [], 
+    otrosEncargados: [],
+    fecha: new Date(),
+    descripcion: ''
   });
 
   // Estados para Checklist de Materiales
@@ -40,7 +87,6 @@ export default function MisAsambleas({ navigation }) {
   const [opcionOtroActiva, setOpcionOtroActiva] = useState(false);
   const [textoOtroMaterial, setTextoOtroMaterial] = useState('');
 
-  // Cargar datos de la BD al iniciar
   useEffect(() => {
     cargarDirigentes();
     cargarMateriales();
@@ -51,27 +97,38 @@ export default function MisAsambleas({ navigation }) {
       const response = await fetch(`${API_URL}/dirigentes`);
       if (response.ok) {
         const data = await response.json();
-        
-        // FILTRO: Excluir al usuario que está creando la asamblea
-        const idUsuarioActual = user?.dirigente?.id_dirigente || user?.dirigente?.id;
         const dirigentesDisponibles = data.filter(d => {
           const idD = d.id_dirigente || d.id;
           return idD !== idUsuarioActual;
         });
-        
         setDirigentes(dirigentesDisponibles);
       }
-    } catch (error) { console.error('Error cargando dirigentes:', error); }
+    } catch (error) { 
+      // Mock de respaldo por si falla la API
+      setDirigentes([
+        { id: 101, nombre: 'Ada', apellido: 'Lovelace', rol: 'Nombrado' },
+        { id: 102, nombre: 'Grace', apellido: 'Hopper', rol: 'Coordinación' },
+        { id: 103, nombre: 'Linus', apellido: 'Torvalds', rol: 'Colaborador' },
+        { id: 104, nombre: 'Margaret', apellido: 'Hamilton', rol: 'Nombrado' }
+      ]);
+    }
   };
 
   const cargarMateriales = async () => {
     try {
       const response = await fetch(`${API_URL}/materiales`);
       if (response.ok) setMaterialesDB(await response.json());
-    } catch (error) { console.error('Error cargando materiales:', error); }
+    } catch (error) { 
+      // Mock de respaldo para materiales
+      setMaterialesDB([
+        { id_material: 1, nombre_material: 'Campana' },
+        { id_material: 2, nombre_material: 'Cronómetro' },
+        { id_material: 3, nombre_material: 'Proyector' },
+        { id_material: 4, nombre_material: 'Megáfono' }
+      ]);
+    }
   };
 
-  // --- Lógica del Checklist de Materiales ---
   const toggleMaterial = (id, nombreMaterial) => {
     setMaterialesSeleccionados(prev => {
       const nuevoEstado = { ...prev };
@@ -98,7 +155,6 @@ export default function MisAsambleas({ navigation }) {
     });
   };
 
-  // --- Lógica de Selección Múltiple de Otros Encargados ---
   const toggleOtroEncargado = (dirigente) => {
     setNuevaAsamblea(prev => {
       const idDirigente = dirigente.id_dirigente || dirigente.id;
@@ -118,13 +174,32 @@ export default function MisAsambleas({ navigation }) {
     });
   };
 
-  const abrirModal = () => {
+  const abrirModalCrear = () => {
+    setModoEdicion(false);
+    setIdAsambleaEditando(null);
     setNuevaAsamblea({ 
-      titulo: '', encargadoPitar: null, encargadoTiempo: null, otrosEncargados: [] 
+      titulo: '', encargadoPitar: null, encargadoTiempo: null, otrosEncargados: [], fecha: new Date(), descripcion: '' 
     });
     setMaterialesSeleccionados({});
     setOpcionOtroActiva(false);
     setTextoOtroMaterial('');
+    setModalVisible(true);
+  };
+
+  const abrirModalEditar = (asamblea) => {
+    setModoEdicion(true);
+    setIdAsambleaEditando(asamblea.id);
+    setNuevaAsamblea({
+      titulo: asamblea.titulo,
+      encargadoPitar: null, // Podría mapearse si se guardan objetos completos
+      encargadoTiempo: null,
+      otrosEncargados: [],
+      fecha: new Date(asamblea.fecha),
+      descripcion: asamblea.descripcion || ''
+    });
+    setMaterialesSeleccionados({});
+    setOpcionOtroActiva(false);
+    setTextoOtroMaterial(asamblea.materiales);
     setModalVisible(true);
   };
 
@@ -144,13 +219,62 @@ export default function MisAsambleas({ navigation }) {
       return;
     }
 
-    // ACCIÓN GUARDAR: Cierra este modal y abre el de Próximamente
+    const fObj = nuevaAsamblea.fecha instanceof Date ? nuevaAsamblea.fecha : new Date();
+    const fechaStr = fObj.toISOString().split('T')[0];
+
+    let listaMats = Object.values(materialesSeleccionados).map(m => `${m.nombre} (${m.cantidad})`).join(', ');
+    if (opcionOtroActiva && textoOtroMaterial.trim()) {
+      listaMats += listaMats ? `, ${textoOtroMaterial}` : textoOtroMaterial;
+    }
+
+    if (modoEdicion) {
+      // Actualizar asamblea existente
+      setAsambleas(prev => prev.map(a => {
+        if (a.id === idAsambleaEditando) {
+          return {
+            ...a,
+            titulo: nuevaAsamblea.titulo,
+            encargadoPitar: nuevaAsamblea.encargadoPitar ? `${nuevaAsamblea.encargadoPitar.nombre} ${nuevaAsamblea.encargadoPitar.apellido}` : a.encargadoPitar,
+            encargadoTiempo: nuevaAsamblea.encargadoTiempo ? `${nuevaAsamblea.encargadoTiempo.nombre} ${nuevaAsamblea.encargadoTiempo.apellido}` : a.encargadoTiempo,
+            otrosEncargados: nuevaAsamblea.otrosEncargados.length > 0 ? nuevaAsamblea.otrosEncargados.map(d => d.nombre).join(', ') : a.otrosEncargados,
+            materiales: listaMats || a.materiales,
+            fecha: fechaStr,
+            descripcion: nuevaAsamblea.descripcion
+          };
+        }
+        return a;
+      }).sort((a, b) => new Date(a.fecha) - new Date(b.fecha)));
+    } else {
+      // Crear nueva asamblea
+      const nuevaCreada = {
+        id: Date.now(),
+        titulo: nuevaAsamblea.titulo,
+        creadorId: idUsuarioActual,
+        dirigente: nombreUsuarioActual,
+        encargadoPitar: nuevaAsamblea.encargadoPitar ? `${nuevaAsamblea.encargadoPitar.nombre} ${nuevaAsamblea.encargadoPitar.apellido}` : 'No asignado',
+        encargadoTiempo: nuevaAsamblea.encargadoTiempo ? `${nuevaAsamblea.encargadoTiempo.nombre} ${nuevaAsamblea.encargadoTiempo.apellido}` : 'No asignado',
+        otrosEncargados: nuevaAsamblea.otrosEncargados.length > 0 ? nuevaAsamblea.otrosEncargados.map(d => d.nombre).join(', ') : 'Ninguno',
+        materiales: listaMats || 'Sin materiales especificados',
+        fecha: fechaStr,
+        descripcion: nuevaAsamblea.descripcion
+      };
+
+      setAsambleas(prev => [...prev, nuevaCreada].sort((a, b) => new Date(a.fecha) - new Date(b.fecha)));
+    }
+
     setModalVisible(false);
     setModalProximamenteVisible(true);
   };
 
   const eliminarAsamblea = (id) => {
-    setAsambleas(asambleas.filter(a => a.id !== id));
+    Alert.alert(
+      "Eliminar Asamblea",
+      "¿Estás seguro de que deseas eliminar esta asamblea?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Eliminar", style: "destructive", onPress: () => setAsambleas(asambleas.filter(a => a.id !== id)) }
+      ]
+    );
   };
 
   const dirigentesMostrar = campoSeleccion === 'encargadoPitar'
@@ -160,16 +284,17 @@ export default function MisAsambleas({ navigation }) {
       })
     : dirigentes;
 
+  const asambleasOrdenadas = [...asambleas].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
   return (
     <View style={styles.container}>
       <WaveBackground style={{ pointerEvents: 'none' }} />
-      <SectionTitle title="Mi Asamblea" showBackButton={true} onBackPress={() => navigation.goBack()} />
+      <SectionTitle title="Asambleas" showBackButton={true} onBackPress={() => navigation.goBack()} />
       
-      {/* SECCION MIS ASAMBLEAS */}
       <View style={styles.listaContainer}>
-        <Text style={styles.tituloSeccion}>Mis asambleas</Text>
+        <Text style={styles.tituloSeccion}>Listado de Asambleas</Text>
         
-        {asambleas.length === 0 ? (
+        {asambleasOrdenadas.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="calendar-outline" size={60} color="#ccc" />
             <Text style={styles.emptyText}>No hay asambleas registradas</Text>
@@ -177,73 +302,93 @@ export default function MisAsambleas({ navigation }) {
           </View>
         ) : (
           <ScrollView showsVerticalScrollIndicator={false}>
-            {asambleas.map((asamblea) => (
-              <View key={asamblea.id} style={styles.asambleaCard}>
-                <View style={styles.cardHeader}>
-                  <Text style={styles.cardTitle}>{asamblea.titulo}</Text>
-                  <TouchableOpacity onPress={() => eliminarAsamblea(asamblea.id)}>
-                    <Ionicons name="trash-outline" size={20} color="#E50F0F" />
-                  </TouchableOpacity>
-                </View>
-                
-                <View style={styles.cardRow}>
-                  <Ionicons name="person-outline" size={18} color="#666" />
-                  <Text style={styles.cardLabel}>Dirigente:</Text>
-                  <Text style={styles.cardValue}>{asamblea.dirigente}</Text>
-                </View>
-                
-                <View style={styles.cardRow}>
-                  <Ionicons name="time-outline" size={18} color="#666" />
-                  <Text style={styles.cardLabel}>Pitar/Tiempo:</Text>
-                  <Text style={styles.cardValue}>{asamblea.encargadoPitar || 'No asignado'} / {asamblea.encargadoTiempo || 'No asignado'}</Text>
-                </View>
+            {asambleasOrdenadas.map((asamblea) => {
+              const esMía = asamblea.creadorId === idUsuarioActual;
 
-                <View style={styles.cardRow}>
-                  <Ionicons name="people-outline" size={18} color="#666" />
-                  <Text style={styles.cardLabel}>Otros Enc.:</Text>
-                  <Text style={styles.cardValue} numberOfLines={2}>
-                    {asamblea.otrosEncargados || 'Ninguno'}
-                  </Text>
+              return (
+                <View 
+                  key={asamblea.id} 
+                  style={[styles.asambleaCard, esMía && styles.asambleaCardMia]}
+                >
+                  {esMía && (
+                    <View style={styles.badgeMia}>
+                      <Text style={styles.badgeMiaText}>🌟 Tu Asamblea</Text>
+                    </View>
+                  )}
+
+                  <View style={styles.cardHeader}>
+                    <Text style={styles.cardTitle}>{asamblea.titulo}</Text>
+                    
+                    {/* Botones de acción visibles SOLO si es tu asamblea */}
+                    {esMía && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <TouchableOpacity style={{ marginRight: 12 }} onPress={() => abrirModalEditar(asamblea)}>
+                          <Ionicons name="pencil-outline" size={20} color="#FFA726" />
+                        </TouchableOpacity> 
+                        <TouchableOpacity onPress={() => eliminarAsamblea(asamblea.id)}>
+                          <Ionicons name="trash-outline" size={20} color="#E50F0F" />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                  
+                  <View style={styles.cardRow}>
+                    <Ionicons name="person-outline" size={18} color="#666" />
+                    <Text style={styles.cardLabel}>Organiza:</Text>
+                    <Text style={styles.cardValue}>{asamblea.dirigente}</Text>
+                  </View>
+                  
+                  <View style={styles.cardRow}>
+                    <Ionicons name="time-outline" size={18} color="#666" />
+                    <Text style={styles.cardLabel}>Pitar/Tiempo:</Text>
+                    <Text style={styles.cardValue}>{asamblea.encargadoPitar} / {asamblea.encargadoTiempo}</Text>
+                  </View>
+
+                  <View style={styles.cardRow}>
+                    <Ionicons name="people-outline" size={18} color="#666" />
+                    <Text style={styles.cardLabel}>Otros Enc.:</Text>
+                    <Text style={styles.cardValue} numberOfLines={2}>
+                      {asamblea.otrosEncargados}
+                    </Text>
+                  </View>
+                  
+                  <View style={[styles.cardRow, { alignItems: 'flex-start', marginTop: 4 }]}>
+                    <Ionicons name="cube-outline" size={18} color="#666" style={{ marginTop: 2 }} />
+                    <Text style={styles.cardLabel}>Materiales:</Text>
+                  </View>
+                  <Text style={styles.cardMateriales}>{asamblea.materiales}</Text>
+                  
+                  <View style={styles.cardFooter}>
+                    <Text style={styles.cardDate}>📅 {asamblea.fecha}</Text>
+                  </View>
                 </View>
-                
-                <View style={[styles.cardRow, { alignItems: 'flex-start', marginTop: 4 }]}>
-                  <Ionicons name="cube-outline" size={18} color="#666" style={{ marginTop: 2 }} />
-                  <Text style={styles.cardLabel}>Materiales:</Text>
-                </View>
-                <Text style={styles.cardMateriales}>{asamblea.materiales || 'Sin materiales especificados'}</Text>
-                
-                <View style={styles.cardFooter}>
-                  <Text style={styles.cardDate}>📅 {asamblea.fecha}</Text>
-                </View>
-              </View>
-            ))}
+              );
+            })}
           </ScrollView>
         )}
       </View>
 
-      {/* BOTON FLOTANTE */}
-      <TouchableOpacity style={styles.fab} onPress={abrirModal}> 
+      <TouchableOpacity style={styles.fab} onPress={abrirModalCrear}> 
         <Ionicons name="add" size={30} color="#fff" />
       </TouchableOpacity>
 
-      {/* MODAL CREAR ASAMBLEA */}
+      {/* MODAL CREAR / EDITAR ASAMBLEA */}
       <Modal visible={modalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: '#fff', width: '90%', maxHeight: '90%' }]}>
-            <Text style={styles.modalTitle}>Nueva Asamblea</Text>
+            <Text style={styles.modalTitle}>{modoEdicion ? 'Editar Asamblea' : 'Nueva Asamblea'}</Text>
             
             <ScrollView showsVerticalScrollIndicator={false}>
               
               <Text style={styles.label}>Título de la asamblea:</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Ej: Asamblea del mejor amigo"
+                placeholder="Ej: Asamblea de Algoritmos"
                 value={nuevaAsamblea.titulo}
                 onChangeText={(text) => setNuevaAsamblea({ ...nuevaAsamblea, titulo: text })}
               />
 
-              {/* SECCIÓN OTROS ENCARGADOS */}
-              <Text style={styles.label}>Otros encargados de la asamblea (Selección múltiple):</Text>
+              <Text style={styles.label}>Otros encargados (Selección múltiple):</Text>
               <TouchableOpacity 
                 style={styles.selectorEncargado} 
                 onPress={() => setModalOtrosEncargadosVisible(true)}
@@ -258,7 +403,19 @@ export default function MisAsambleas({ navigation }) {
                 <Ionicons name="people" size={20} color="#999" />
               </TouchableOpacity>
 
-              <Text style={styles.label}>Encargado de pitar (Solo Nombrados/Coord.):</Text>
+              <FechaPicker fechaObj={nuevaAsamblea.fecha} onFechaChange={(fecha) => setNuevaAsamblea({ ...nuevaAsamblea, fecha })} />
+              
+              <Text style={styles.label}>Descripción:</Text>  
+              <TextInput
+                style={[styles.input, styles.textArea, { marginTop: 8 }]}
+                placeholder="Especifique detalles..."
+                multiline
+                numberOfLines={3}
+                value={nuevaAsamblea.descripcion}
+                onChangeText={(text) => setNuevaAsamblea({ ...nuevaAsamblea, descripcion: text })}
+              />
+
+              <Text style={styles.label}>Encargado de pitar (Solo Nombrado/Coord.):</Text>
               <TouchableOpacity style={styles.selectorEncargado} onPress={() => abrirSeleccionDirigente('encargadoPitar')}>
                 {nuevaAsamblea.encargadoPitar ? (
                   <View style={styles.encargadoSeleccionadoRow}>
@@ -288,13 +445,12 @@ export default function MisAsambleas({ navigation }) {
                 <Ionicons name="chevron-down" size={20} color="#999" />
               </TouchableOpacity>
 
-              {/* SECCIÓN DE MATERIALES (CHECKLIST) */}
               <Text style={[styles.label, { marginTop: 10, borderTopWidth: 1, paddingTop: 10, borderColor: '#eee' }]}>Materiales necesarios:</Text>
               
               <View style={styles.checklistContainer}>
                 {materialesDB.map((mat) => {
                   const itemId = mat.id_material || mat.id; 
-                  const nombreMaterial = mat.nombre || mat.nombre_material || mat.descripcion || 'Material sin nombre';
+                  const nombreMaterial = mat.nombre_material || mat.nombre || 'Material';
                   const isChecked = !!materialesSeleccionados[itemId];
 
                   return (
@@ -343,7 +499,7 @@ export default function MisAsambleas({ navigation }) {
                   <Text style={{ color: '#333', fontWeight: 'bold' }}>Cancelar</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.button, { backgroundColor: '#FFA726' }]} onPress={guardarAsamblea}>
-                  <Text style={{ color: '#fff', fontWeight: 'bold' }}>Guardar</Text>
+                  <Text style={{ color: '#fff', fontWeight: 'bold' }}>{modoEdicion ? 'Actualizar' : 'Guardar'}</Text>
                 </TouchableOpacity>
               </View>
 
@@ -352,7 +508,7 @@ export default function MisAsambleas({ navigation }) {
         </View>
       </Modal>
 
-      {/* SUB-MODAL SELECCIONAR DIRIGENTE (Único) */}
+      {/* SUB-MODAL SELECCIONAR DIRIGENTE */}
       <Modal visible={modalDirigentesVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { width: '85%', maxHeight: '70%', padding: 15 }]}>
@@ -435,7 +591,6 @@ export default function MisAsambleas({ navigation }) {
         </View>
       </Modal>
 
-      {/* MODAL PRÓXIMAMENTE */}
       <ModalProximamente 
         visible={modalProximamenteVisible} 
         onClose={() => setModalProximamenteVisible(false)} 
@@ -454,7 +609,12 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 16, color: '#666', marginTop: 15, fontWeight: '500' },
   emptySubtext: { fontSize: 14, color: '#999', marginTop: 5, textAlign: 'center' },
   
-  asambleaCard: { backgroundColor: '#fff', borderRadius: 12, padding: 15, marginBottom: 12, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3 },
+  asambleaCard: { backgroundColor: '#fff', borderRadius: 12, padding: 15, marginBottom: 12, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3, borderWidth: 1, borderColor: '#eee' },
+  asambleaCardMia: { borderColor: '#FFA726', backgroundColor: '#fffdf9', borderWidth: 1.5 },
+  
+  badgeMia: { position: 'absolute', top: -10, right: 15, backgroundColor: '#FFA726', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  badgeMiaText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
+
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#eee' },
   cardTitle: { fontSize: 16, fontWeight: 'bold', color: '#333', flex: 1 },
   cardRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
@@ -462,7 +622,7 @@ const styles = StyleSheet.create({
   cardValue: { fontSize: 14, color: '#333', marginLeft: 5, flex: 1 },
   cardMateriales: { fontSize: 14, color: '#333', marginLeft: 26, marginBottom: 8, fontStyle: 'italic' },
   cardFooter: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
-  cardDate: { fontSize: 12, color: '#888' },
+  cardDate: { fontSize: 12, color: '#888', fontWeight: '600' },
   
   fab: { position: 'absolute', right: 20, bottom: 100, backgroundColor: '#FFA726', width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3 },
   
