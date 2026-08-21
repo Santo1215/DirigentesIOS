@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { 
-  View, Text, StyleSheet, TouchableOpacity, Modal, 
-  TextInput, Alert, ScrollView, Image 
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Alert, ScrollView, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '../api';
 import { UserContext } from '../context/UserContext'; 
@@ -10,278 +7,227 @@ import SectionTitle from '../components/TituloSeccion';
 import BottomNav from '../components/navbar';
 import WaveBackground from '../components/WaveBackground';
 import FechaPicker from '../components/FechaPicker';
-import ModalProximamente from '../components/ModalProximamente'; 
+
 
 export default function MisAsambleas({ navigation }) {
   const { user } = useContext(UserContext);
   
   const idUsuarioActual = user?.dirigente?.id_dirigente || user?.dirigente?.id || 1;
-  const nombreUsuarioActual = user?.dirigente ? `${user.dirigente.nombre} ${user.dirigente.apellido}` : 'Alan Turing';
+  const nombreUsuarioActual = user?.dirigente ? `${user.dirigente.nombre} ${user.dirigente.apellido}` : 'Usuario';
 
-  // Mock data actualizado con nombres de pioneros de la computación
-  const [asambleas, setAsambleas] = useState([
-    {
-      id: 1,
-      titulo: 'Asamblea General de Inicio de semestre',
-      creadorId: idUsuarioActual, // Creada por mí (Alan Turing)
-      dirigente: nombreUsuarioActual,
-      encargadoPitar: 'Ada Lovelace',
-      encargadoTiempo: 'Grace Hopper',
-      otrosEncargados: 'Linus Torvalds, Margaret Hamilton',
-      materiales: 'Campana (1), Cronómetro (1)',
-      fecha: '2026-08-22',
-      descripcion: 'Asamblea para presentar a los nuevos dirigentes, constará de 6 bases dinamicas y principalmente de juegos para atraer más gente nueva.'
-    },
-    {
-      id: 2,
-      titulo: 'Asamblea del Mejor Amigo',
-      creadorId: 999, // Creada por otro usuario (Steve Jobs)
-      dirigente: 'Steve Jobs',
-      encargadoPitar: 'Steve Wozniak',
-      encargadoTiempo: 'Bill Gates',
-      otrosEncargados: 'Tim Berners-Lee',
-      materiales: 'Proyector (1)',
-      fecha: '2026-08-25',
-      descripcion: 'Presentación de prototipos visuales.'
-    },
-    {
-      id: 3,
-      titulo: 'Precampamento',
-      creadorId: idUsuarioActual, // Creada por mí
-      dirigente: nombreUsuarioActual,
-      encargadoPitar: 'Margaret Hamilton',
-      encargadoTiempo: nombreUsuarioActual,
-      otrosEncargados: 'Ninguno',
-      materiales: 'Megáfono (1), Hojas de registro (50)',
-      fecha: '2026-09-02',
-      descripcion: 'Este precampamento tiene como finalidad introducir a los chicos al campamento dandoles los fundamentos de esta.'
-    }
-  ]);
-
+  // 1. Quitar los mock data
+  const [asambleas, setAsambleas] = useState([]);
   const [dirigentes, setDirigentes] = useState([]);
   const [materialesDB, setMaterialesDB] = useState([]);
   
-  // Estados para Modales
   const [modalVisible, setModalVisible] = useState(false);
   const [modalDirigentesVisible, setModalDirigentesVisible] = useState(false);
   const [modalOtrosEncargadosVisible, setModalOtrosEncargadosVisible] = useState(false);
-  const [modalProximamenteVisible, setModalProximamenteVisible] = useState(false);
   const [campoSeleccion, setCampoSeleccion] = useState('');
 
-  // Control de modo Edición
   const [modoEdicion, setModoEdicion] = useState(false);
   const [idAsambleaEditando, setIdAsambleaEditando] = useState(null);
 
-  // Estados del Formulario
   const [nuevaAsamblea, setNuevaAsamblea] = useState({
-    titulo: '',
-    encargadoPitar: null, 
-    encargadoTiempo: null,
-    otrosEncargados: [],
-    fecha: new Date(),
-    descripcion: ''
+    titulo: '', encargadoPitar: null, encargadoTiempo: null, otrosEncargados: [], fecha: new Date(), descripcion: ''
   });
 
-  // Estados para Checklist de Materiales
   const [materialesSeleccionados, setMaterialesSeleccionados] = useState({});
   const [opcionOtroActiva, setOpcionOtroActiva] = useState(false);
   const [textoOtroMaterial, setTextoOtroMaterial] = useState('');
 
   useEffect(() => {
+    cargarAsambleas();
     cargarDirigentes();
     cargarMateriales();
   }, []);
+
+  const cargarAsambleas = async () => {
+    try {
+      const response = await fetch(`${API_URL}/asambleas`);
+      if (response.ok) setAsambleas(await response.json());
+    } catch (error) { console.error('Error cargando asambleas:', error); }
+  };
 
   const cargarDirigentes = async () => {
     try {
       const response = await fetch(`${API_URL}/dirigentes`);
       if (response.ok) {
         const data = await response.json();
-        const dirigentesDisponibles = data.filter(d => {
-          const idD = d.id_dirigente || d.id;
-          return idD !== idUsuarioActual;
-        });
-        setDirigentes(dirigentesDisponibles);
+        setDirigentes(data.filter(d => (d.id_dirigente || d.id) !== idUsuarioActual));
       }
-    } catch (error) { 
-      // Mock de respaldo por si falla la API
-      setDirigentes([
-        { id: 101, nombre: 'Ada', apellido: 'Lovelace', rol: 'Nombrado' },
-        { id: 102, nombre: 'Grace', apellido: 'Hopper', rol: 'Coordinación' },
-        { id: 103, nombre: 'Linus', apellido: 'Torvalds', rol: 'Colaborador' },
-        { id: 104, nombre: 'Margaret', apellido: 'Hamilton', rol: 'Nombrado' }
-      ]);
-    }
+    } catch (error) { console.error('Error cargando dirigentes:', error); }
   };
 
   const cargarMateriales = async () => {
     try {
       const response = await fetch(`${API_URL}/materiales`);
       if (response.ok) setMaterialesDB(await response.json());
-    } catch (error) { 
-      // Mock de respaldo para materiales
-      setMaterialesDB([
-        { id_material: 1, nombre_material: 'Campana' },
-        { id_material: 2, nombre_material: 'Cronómetro' },
-        { id_material: 3, nombre_material: 'Proyector' },
-        { id_material: 4, nombre_material: 'Megáfono' }
-      ]);
-    }
+    } catch (error) { console.error('Error cargando materiales:', error); }
   };
 
   const toggleMaterial = (id, nombreMaterial) => {
     setMaterialesSeleccionados(prev => {
       const nuevoEstado = { ...prev };
-      if (nuevoEstado[id]) {
-        delete nuevoEstado[id]; 
-      } else {
-        nuevoEstado[id] = { nombre: nombreMaterial, cantidad: 1 };
-      }
+      if (nuevoEstado[id]) delete nuevoEstado[id]; 
+      else nuevoEstado[id] = { nombre: nombreMaterial, cantidad: 1 };
       return nuevoEstado;
     });
   };
 
-  const incrementarCantidad = (id) => {
-    setMaterialesSeleccionados(prev => ({
-      ...prev, [id]: { ...prev[id], cantidad: prev[id].cantidad + 1 }
-    }));
-  };
-
-  const decrementarCantidad = (id) => {
-    setMaterialesSeleccionados(prev => {
-      const cantidadActual = prev[id].cantidad;
-      if (cantidadActual <= 1) return prev; 
-      return { ...prev, [id]: { ...prev[id], cantidad: cantidadActual - 1 } };
-    });
-  };
+  const incrementarCantidad = (id) => setMaterialesSeleccionados(prev => ({ ...prev, [id]: { ...prev[id], cantidad: prev[id].cantidad + 1 } }));
+  const decrementarCantidad = (id) => setMaterialesSeleccionados(prev => prev[id].cantidad <= 1 ? prev : { ...prev, [id]: { ...prev[id], cantidad: prev[id].cantidad - 1 } });
 
   const toggleOtroEncargado = (dirigente) => {
     setNuevaAsamblea(prev => {
       const idDirigente = dirigente.id_dirigente || dirigente.id;
       const existe = prev.otrosEncargados.find(d => (d.id_dirigente || d.id) === idDirigente);
-      
-      if (existe) {
-        return { 
-          ...prev, 
-          otrosEncargados: prev.otrosEncargados.filter(d => (d.id_dirigente || d.id) !== idDirigente) 
-        };
-      } else {
-        return { 
-          ...prev, 
-          otrosEncargados: [...prev.otrosEncargados, dirigente] 
-        };
-      }
+      return existe 
+        ? { ...prev, otrosEncargados: prev.otrosEncargados.filter(d => (d.id_dirigente || d.id) !== idDirigente) }
+        : { ...prev, otrosEncargados: [...prev.otrosEncargados, dirigente] };
     });
   };
 
   const abrirModalCrear = () => {
-    setModoEdicion(false);
-    setIdAsambleaEditando(null);
-    setNuevaAsamblea({ 
-      titulo: '', encargadoPitar: null, encargadoTiempo: null, otrosEncargados: [], fecha: new Date(), descripcion: '' 
-    });
-    setMaterialesSeleccionados({});
-    setOpcionOtroActiva(false);
-    setTextoOtroMaterial('');
+    setModoEdicion(false); setIdAsambleaEditando(null);
+    setNuevaAsamblea({ titulo: '', encargadoPitar: null, encargadoTiempo: null, otrosEncargados: [], fecha: new Date(), descripcion: '' });
+    setMaterialesSeleccionados({}); setOpcionOtroActiva(false); setTextoOtroMaterial('');
     setModalVisible(true);
   };
 
   const abrirModalEditar = (asamblea) => {
-    setModoEdicion(true);
-    setIdAsambleaEditando(asamblea.id);
+    setModoEdicion(true); 
+    setIdAsambleaEditando(asamblea.id_asamblea);
+
+    // Pre-rellenar encargado de pitar
+    const encargadoPitarPrefill = asamblea.id_encargado_pitar ? {
+      id_dirigente: asamblea.id_encargado_pitar,
+      nombre: asamblea.pitar_nombre,
+      apellido: asamblea.pitar_apellido,
+      foto: asamblea.pitar_foto || null
+    } : null;
+
+    // Pre-rellenar encargado de tiempo
+    const encargadoTiempoPrefill = asamblea.id_encargado_tiempo ? {
+      id_dirigente: asamblea.id_encargado_tiempo,
+      nombre: asamblea.tiempo_nombre,
+      apellido: asamblea.tiempo_apellido,
+      foto: asamblea.tiempo_foto || null
+    } : null;
+
+    // Pre-rellenar otros encargados: buscar coincidencias por nombre completo
+    let otrosEncargadosPrefill = [];
+    try {
+      const raw = asamblea.otros_encargados;
+      const nombresGuardados = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (Array.isArray(nombresGuardados)) {
+        otrosEncargadosPrefill = dirigentes.filter(d =>
+          nombresGuardados.includes(`${d.nombre} ${d.apellido}`)
+        );
+      }
+    } catch (_) {}
+
+    // Pre-rellenar materiales: separar los de la checklist de los custom
+    const materialesSelPrefill = {};
+    let textoPrefill = '';
+
+    const materialesStr = asamblea.materiales || '';
+    if (materialesStr && materialesStr !== 'Sin materiales especificados') {
+      const partes = materialesStr.split(', ');
+      const partidasMatcheadas = new Set();
+
+      for (const mat of materialesDB) {
+        const idMat = mat.id_material || mat.id;
+        const nombreMat = mat.nombre_material || mat.nombre || 'Material';
+        for (const parte of partes) {
+          // Formato guardado: "NombreMaterial (cantidad)"
+          const regex = new RegExp(`^${nombreMat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\((\\d+)\\)$`);
+          const match = parte.match(regex);
+          if (match) {
+            materialesSelPrefill[idMat] = { nombre: nombreMat, cantidad: parseInt(match[1]) };
+            partidasMatcheadas.add(parte);
+            break;
+          }
+        }
+      }
+
+      // Lo que no coincidió con ningún material de la DB → va al campo de texto
+      const noMatchadas = partes.filter(p => !partidasMatcheadas.has(p));
+      textoPrefill = noMatchadas.join(', ');
+    }
+
     setNuevaAsamblea({
       titulo: asamblea.titulo,
-      encargadoPitar: null, // Podría mapearse si se guardan objetos completos
-      encargadoTiempo: null,
-      otrosEncargados: [],
+      encargadoPitar: encargadoPitarPrefill,
+      encargadoTiempo: encargadoTiempoPrefill,
+      otrosEncargados: otrosEncargadosPrefill,
       fecha: new Date(asamblea.fecha),
       descripcion: asamblea.descripcion || ''
     });
-    setMaterialesSeleccionados({});
-    setOpcionOtroActiva(false);
-    setTextoOtroMaterial(asamblea.materiales);
+
+    setMaterialesSeleccionados(materialesSelPrefill);
+    setOpcionOtroActiva(textoPrefill.length > 0);
+    setTextoOtroMaterial(textoPrefill);
     setModalVisible(true);
   };
 
-  const abrirSeleccionDirigente = (campo) => {
-    setCampoSeleccion(campo);
-    setModalDirigentesVisible(true);
-  };
+  const abrirSeleccionDirigente = (campo) => { setCampoSeleccion(campo); setModalDirigentesVisible(true); };
+  const seleccionarDirigente = (dirigente) => { setNuevaAsamblea({ ...nuevaAsamblea, [campoSeleccion]: dirigente }); setModalDirigentesVisible(false); };
 
-  const seleccionarDirigente = (dirigente) => {
-    setNuevaAsamblea({ ...nuevaAsamblea, [campoSeleccion]: dirigente });
-    setModalDirigentesVisible(false);
-  };
-
-  const guardarAsamblea = () => {
-    if (!nuevaAsamblea.titulo.trim()) {
-      Alert.alert('Error', 'El título es obligatorio');
-      return;
-    }
+  const guardarAsamblea = async () => {
+    if (!nuevaAsamblea.titulo.trim()) { Alert.alert('Error', 'El título es obligatorio'); return; }
 
     const fObj = nuevaAsamblea.fecha instanceof Date ? nuevaAsamblea.fecha : new Date();
     const fechaStr = fObj.toISOString().split('T')[0];
 
     let listaMats = Object.values(materialesSeleccionados).map(m => `${m.nombre} (${m.cantidad})`).join(', ');
-    if (opcionOtroActiva && textoOtroMaterial.trim()) {
-      listaMats += listaMats ? `, ${textoOtroMaterial}` : textoOtroMaterial;
-    }
+    if (opcionOtroActiva && textoOtroMaterial.trim()) listaMats += listaMats ? `, ${textoOtroMaterial}` : textoOtroMaterial;
 
-    if (modoEdicion) {
-      // Actualizar asamblea existente
-      setAsambleas(prev => prev.map(a => {
-        if (a.id === idAsambleaEditando) {
-          return {
-            ...a,
-            titulo: nuevaAsamblea.titulo,
-            encargadoPitar: nuevaAsamblea.encargadoPitar ? `${nuevaAsamblea.encargadoPitar.nombre} ${nuevaAsamblea.encargadoPitar.apellido}` : a.encargadoPitar,
-            encargadoTiempo: nuevaAsamblea.encargadoTiempo ? `${nuevaAsamblea.encargadoTiempo.nombre} ${nuevaAsamblea.encargadoTiempo.apellido}` : a.encargadoTiempo,
-            otrosEncargados: nuevaAsamblea.otrosEncargados.length > 0 ? nuevaAsamblea.otrosEncargados.map(d => d.nombre).join(', ') : a.otrosEncargados,
-            materiales: listaMats || a.materiales,
-            fecha: fechaStr,
-            descripcion: nuevaAsamblea.descripcion
-          };
-        }
-        return a;
-      }).sort((a, b) => new Date(a.fecha) - new Date(b.fecha)));
-    } else {
-      // Crear nueva asamblea
-      const nuevaCreada = {
-        id: Date.now(),
-        titulo: nuevaAsamblea.titulo,
-        creadorId: idUsuarioActual,
-        dirigente: nombreUsuarioActual,
-        encargadoPitar: nuevaAsamblea.encargadoPitar ? `${nuevaAsamblea.encargadoPitar.nombre} ${nuevaAsamblea.encargadoPitar.apellido}` : 'No asignado',
-        encargadoTiempo: nuevaAsamblea.encargadoTiempo ? `${nuevaAsamblea.encargadoTiempo.nombre} ${nuevaAsamblea.encargadoTiempo.apellido}` : 'No asignado',
-        otrosEncargados: nuevaAsamblea.otrosEncargados.length > 0 ? nuevaAsamblea.otrosEncargados.map(d => d.nombre).join(', ') : 'Ninguno',
-        materiales: listaMats || 'Sin materiales especificados',
-        fecha: fechaStr,
-        descripcion: nuevaAsamblea.descripcion
-      };
+    // Construir array de nombres completos para otros_encargados
+    const otrosEncargadosNombres = nuevaAsamblea.otrosEncargados.map(d => `${d.nombre} ${d.apellido}`);
 
-      setAsambleas(prev => [...prev, nuevaCreada].sort((a, b) => new Date(a.fecha) - new Date(b.fecha)));
-    }
+    const payload = {
+      titulo: nuevaAsamblea.titulo,
+      id_encargado: idUsuarioActual,
+      id_encargado_pitar: nuevaAsamblea.encargadoPitar ? (nuevaAsamblea.encargadoPitar.id_dirigente || nuevaAsamblea.encargadoPitar.id) : null,
+      id_encargado_tiempo: nuevaAsamblea.encargadoTiempo ? (nuevaAsamblea.encargadoTiempo.id_dirigente || nuevaAsamblea.encargadoTiempo.id) : null,
+      otros_encargados: otrosEncargadosNombres,
+      materiales: listaMats || 'Sin materiales especificados',
+      fecha: fechaStr,
+      descripcion: nuevaAsamblea.descripcion
+    };
 
-    setModalVisible(false);
-    setModalProximamenteVisible(true);
+    try {
+      const url = modoEdicion ? `${API_URL}/asambleas/${idAsambleaEditando}` : `${API_URL}/asambleas`;
+      const method = modoEdicion ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        cargarAsambleas();
+        setModalVisible(false);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        Alert.alert('Error', errData.error || 'No se pudo guardar la asamblea');
+      }
+    } catch (e) { Alert.alert("Error", "No se pudo guardar la asamblea"); }
   };
 
   const eliminarAsamblea = (id) => {
-    Alert.alert(
-      "Eliminar Asamblea",
-      "¿Estás seguro de que deseas eliminar esta asamblea?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        { text: "Eliminar", style: "destructive", onPress: () => setAsambleas(asambleas.filter(a => a.id !== id)) }
-      ]
-    );
+    Alert.alert("Eliminar Asamblea", "¿Estás seguro de que deseas eliminarla?", [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Eliminar", style: "destructive", onPress: async () => {
+          try {
+            const res = await fetch(`${API_URL}/asambleas/${id}`, { method: 'DELETE' });
+            if (res.ok) cargarAsambleas();
+          } catch (e) { console.error(e); }
+      }}
+    ]);
   };
 
   const dirigentesMostrar = campoSeleccion === 'encargadoPitar'
-    ? dirigentes.filter(d => {
-        const rol = (d.rol || d.cargo || d.tipo || '').toLowerCase();
-        return rol.includes('nombrado') || rol.includes('coordinación') || rol.includes('coordinacion');
-      })
+    ? dirigentes.filter(d => (d.rol || '').toLowerCase().includes('nombrado') || (d.rol || '').toLowerCase().includes('coordinación'))
     : dirigentes;
 
   const asambleasOrdenadas = [...asambleas].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
@@ -303,11 +249,20 @@ export default function MisAsambleas({ navigation }) {
         ) : (
           <ScrollView showsVerticalScrollIndicator={false}>
             {asambleasOrdenadas.map((asamblea) => {
-              const esMía = asamblea.creadorId === idUsuarioActual;
+              // Parsear otros_encargados para chequear si el usuario actual está incluido
+              let otrosNombres = [];
+              try {
+                const raw = asamblea.otros_encargados;
+                const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                if (Array.isArray(parsed)) otrosNombres = parsed;
+              } catch (_) {}
+
+              const esMía = asamblea.id_encargado === idUsuarioActual
+                || otrosNombres.includes(nombreUsuarioActual);
 
               return (
                 <View 
-                  key={asamblea.id} 
+                  key={asamblea.id_asamblea} 
                   style={[styles.asambleaCard, esMía && styles.asambleaCardMia]}
                 >
                   {esMía && (
@@ -325,7 +280,7 @@ export default function MisAsambleas({ navigation }) {
                         <TouchableOpacity style={{ marginRight: 12 }} onPress={() => abrirModalEditar(asamblea)}>
                           <Ionicons name="pencil-outline" size={20} color="#FFA726" />
                         </TouchableOpacity> 
-                        <TouchableOpacity onPress={() => eliminarAsamblea(asamblea.id)}>
+                        <TouchableOpacity onPress={() => eliminarAsamblea(asamblea.id_asamblea)}>
                           <Ionicons name="trash-outline" size={20} color="#E50F0F" />
                         </TouchableOpacity>
                       </View>
@@ -335,20 +290,38 @@ export default function MisAsambleas({ navigation }) {
                   <View style={styles.cardRow}>
                     <Ionicons name="person-outline" size={18} color="#666" />
                     <Text style={styles.cardLabel}>Organiza:</Text>
-                    <Text style={styles.cardValue}>{asamblea.dirigente}</Text>
+                    <Text style={styles.cardValue}>
+                      {asamblea.encargado_nombre ? `${asamblea.encargado_nombre} ${asamblea.encargado_apellido}` : asamblea.dirigente || 'Sin asignar'}
+                    </Text>
                   </View>
                   
                   <View style={styles.cardRow}>
                     <Ionicons name="time-outline" size={18} color="#666" />
-                    <Text style={styles.cardLabel}>Pitar/Tiempo:</Text>
-                    <Text style={styles.cardValue}>{asamblea.encargadoPitar} / {asamblea.encargadoTiempo}</Text>
+                    <Text style={styles.cardLabel}>Pitar:</Text>
+                    <Text style={styles.cardValue}>
+                      {asamblea.pitar_nombre ? `${asamblea.pitar_nombre} ${asamblea.pitar_apellido}` : 'No asignado'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.cardRow}>
+                    <Ionicons name="timer-outline" size={18} color="#666" />
+                    <Text style={styles.cardLabel}>Tiempo:</Text>
+                    <Text style={styles.cardValue}>
+                      {asamblea.tiempo_nombre ? `${asamblea.tiempo_nombre} ${asamblea.tiempo_apellido}` : 'No asignado'}
+                    </Text>
                   </View>
 
                   <View style={styles.cardRow}>
                     <Ionicons name="people-outline" size={18} color="#666" />
                     <Text style={styles.cardLabel}>Otros Enc.:</Text>
                     <Text style={styles.cardValue} numberOfLines={2}>
-                      {asamblea.otrosEncargados}
+                      {(() => {
+                        try {
+                          const raw = asamblea.otros_encargados;
+                          const arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                          return Array.isArray(arr) && arr.length > 0 ? arr.join(', ') : 'Ninguno';
+                        } catch { return 'Ninguno'; }
+                      })()}
                     </Text>
                   </View>
                   
@@ -383,7 +356,7 @@ export default function MisAsambleas({ navigation }) {
               <Text style={styles.label}>Título de la asamblea:</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Ej: Asamblea de Algoritmos"
+                placeholder="Ej: Asamblea del mejor amigo"
                 value={nuevaAsamblea.titulo}
                 onChangeText={(text) => setNuevaAsamblea({ ...nuevaAsamblea, titulo: text })}
               />
@@ -591,10 +564,6 @@ export default function MisAsambleas({ navigation }) {
         </View>
       </Modal>
 
-      <ModalProximamente 
-        visible={modalProximamenteVisible} 
-        onClose={() => setModalProximamenteVisible(false)} 
-      />
 
       <BottomNav navigation={navigation} />
     </View>

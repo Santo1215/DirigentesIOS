@@ -10,7 +10,7 @@ import { UserContext } from '../context/UserContext';
 import SectionTitle from '../components/TituloSeccion';
 import BottomNav from '../components/navbar';
 import WaveBackground from '../components/WaveBackground';
-import FechaPicker from '../components/FechaPicker'; // <-- Importamos el componente
+import FechaPicker from '../components/FechaPicker';
 
 LocaleConfig.locales['es'] = {
   monthNames: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
@@ -44,7 +44,6 @@ export default function Calendario({ navigation }) {
     responsable: user?.dirigente ? `${user.dirigente.nombre} ${user.dirigente.apellido}` : '', 
     tipo: user?.dirigente?.comite || 'Otro'     
   });
-
   const opcionesTipo = ['Redes', 'Integración', 'Religioso', 'Reunión', 'Otro'];
 
   // Cargas de la Base de Datos
@@ -55,30 +54,57 @@ export default function Calendario({ navigation }) {
     } catch (error) { console.error('Error cargando dirigentes:', error); }
   };
 
-  const fetchActividades = async () => {
-    try {
-      const response = await fetch(`${API_URL}/actividades`);
-      const data = await response.json();
-      const formatted = {};
-      const arr = Array.isArray(data) ? data : (data.actividades || []);
-      
-      const coloresTipos = { 
-        'redes': '#FF9800', 
-        'reunión': '#E50F0F', 
-        'religioso': '#2196F3', 
-        'integración': '#4CAF50' 
-      };
+const fetchEventos = async () => {
+  try {
+    const [resAct, resAsam] = await Promise.all([
+      fetch(`${API_URL}/actividades`),
+      fetch(`${API_URL}/asambleas`)
+    ]);
+    
+    const dataAct = await resAct.json();
+    const dataAsam = await resAsam.json();
+    
+    const formatted = {};
+    const coloresTipos = { 
+      'redes': '#FFFF00', 
+      'reunión': '#4CAF50', 
+      'religioso': '#E50F0F', 
+      'integración': '#2196F3',
+      'asamblea': '#FF9800', 
+      'otro': '#9C27B0'
+    };
 
-      arr.forEach((act) => {
-        const dateStr = String(act.fecha).substring(0, 10);
-        if (!formatted[dateStr]) formatted[dateStr] = [];
-        
-        const color = coloresTipos[act.tipo?.toLowerCase()] || '#9C27B0';
-        formatted[dateStr].push({ key: act.id_actividad.toString(), color, ...act });
+      // Procesar Actividades
+      const arrAct = Array.isArray(dataAct) ? dataAct : (dataAct.actividades || []);
+    arrAct.forEach((act) => {
+    const dateStr = String(act.fecha).substring(0, 10);
+    if (!formatted[dateStr]) formatted[dateStr] = [];
+    
+    // Busca el color, si no existe usa el de 'otro'
+    const color = coloresTipos[act.tipo?.toLowerCase()] || coloresTipos['otro'];
+    
+    formatted[dateStr].push({ key: `act_${act.id_actividad}`, color, ...act });
+  });
+      
+    // Procesar Asambleas
+    const arrAsam = Array.isArray(dataAsam) ? dataAsam : (dataAsam.asambleas || []);
+    arrAsam.forEach((asm) => {
+      const dateStr = String(asm.fecha).substring(0, 10);
+      if (!formatted[dateStr]) formatted[dateStr] = [];
+      formatted[dateStr].push({ 
+        key: `asm_${asm.id_asamblea}`, 
+        color: coloresTipos['asamblea'], 
+        titulo: asm.titulo,
+        tipo: 'Asamblea',
+        fecha: asm.fecha,
+        descripcion: asm.descripcion,
+        esAsamblea: true // Bandera útil para lógica
       });
-      setActividadesFormateadas(formatted);
-    } catch (error) { console.error('Error cargando actividades:', error); }
-  };
+    });
+
+    setActividadesFormateadas(formatted);
+  } catch (error) { console.error('Error:', error); }
+};
 
   const cargarAsistentes = async (idActividad) => {
     try {
@@ -97,7 +123,7 @@ export default function Calendario({ navigation }) {
   };
 
   useEffect(() => {
-    fetchActividades();
+    fetchEventos();
     cargarTodosLosDirigentes();
   }, []);
 
@@ -212,10 +238,10 @@ export default function Calendario({ navigation }) {
       {/* LEYENDA */}
       <View style={styles.legendContainer}>
         <View style={styles.legendColorBar}>
-          <View style={[styles.colorSegment, { backgroundColor: '#E50F0F' }]} /><View style={[styles.colorSegment, { backgroundColor: '#2196F3' }]} /><View style={[styles.colorSegment, { backgroundColor: '#4CAF50' }]} /><View style={[styles.colorSegment, { backgroundColor: '#FF9800' }]} /><View style={[styles.colorSegment, { backgroundColor: '#9C27B0' }]} />
+          <View style={[styles.colorSegment, { backgroundColor: '#FF9800' }]} /><View style={[styles.colorSegment, { backgroundColor: '#4CAF50' }]} /><View style={[styles.colorSegment, { backgroundColor: '#E50F0F' }]} /><View style={[styles.colorSegment, { backgroundColor: '#2196F3' }]} /><View style={[styles.colorSegment, { backgroundColor: '#FFFF00' }]} /><View style={[styles.colorSegment, { backgroundColor: '#9C27B0' }]} />
         </View>
         <View style={styles.legendLabels}>
-          <Text style={styles.legendText}>Reunión</Text><Text style={styles.legendText}>Religioso</Text><Text style={styles.legendText}>Integración</Text><Text style={styles.legendText}>Redes</Text><Text style={styles.legendText}>Otro</Text>
+          <Text style={styles.legendText}>Asambleas</Text><Text style={styles.legendText}>Reunión</Text><Text style={styles.legendText}>Religioso</Text><Text style={styles.legendText}>Integración</Text><Text style={styles.legendText}>Redes</Text><Text style={styles.legendText}>Otro</Text>
         </View>
       </View>
 
@@ -266,28 +292,32 @@ export default function Calendario({ navigation }) {
                   </Text>
                 )}
 
-                <View style={{ marginTop: 15 }}>
-                  <Text style={styles.detailLabel}>¿Asistirás a esta actividad?:</Text>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-                    <TouchableOpacity 
-                      style={[styles.button, { backgroundColor: miEstadoAsistencia === 'si' ? '#4CAF50' : '#e0e0e0' }]} 
-                      onPress={() => registrarAsistencia('si')}
-                    >
-                      <Text style={{ color: miEstadoAsistencia === 'si' ? '#fff' : '#333', fontWeight: 'bold' }}>Sí Asistiré</Text>
-                    </TouchableOpacity>
+                {!actividadSeleccionada.esAsamblea ? (
+                  <View style={{ marginTop: 15 }}>
+                    <Text style={styles.detailLabel}>¿Asistirás a esta actividad?:</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+                      <TouchableOpacity 
+                        style={[styles.button, { backgroundColor: miEstadoAsistencia === 'si' ? '#4CAF50' : '#e0e0e0' }]} 
+                        onPress={() => registrarAsistencia('si')}
+                      >
+                        <Text style={{ color: miEstadoAsistencia === 'si' ? '#fff' : '#333', fontWeight: 'bold' }}>Sí Asistiré</Text>
+                      </TouchableOpacity>
 
-                    <TouchableOpacity 
-                      style={[styles.button, { 
-                        backgroundColor: miEstadoAsistencia === 'no' ? '#F44336' : '#e0e0e0',
-                        opacity: estaBloqueadaConfirmacion(actividadSeleccionada.fecha) ? 0.6 : 1
-                      }]} 
-                      onPress={() => registrarAsistencia('no')}
-                      disabled={estaBloqueadaConfirmacion(actividadSeleccionada.fecha)}
-                    >
-                      <Text style={{ color: miEstadoAsistencia === 'no' ? '#fff' : '#333', fontWeight: 'bold' }}>No Asistiré</Text>
-                    </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.button, { backgroundColor: miEstadoAsistencia === 'no' ? '#F44336' : '#e0e0e0' }]} 
+                        onPress={() => registrarAsistencia('no')}
+                      >
+                        <Text style={{ color: miEstadoAsistencia === 'no' ? '#fff' : '#333', fontWeight: 'bold' }}>No Asistiré</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                </View>
+                ) : (
+                  <View style={{ marginTop: 15, padding: 10, backgroundColor: '#FFF3E0', borderRadius: 8 }}>
+                    <Text style={{ textAlign: 'center', color: '#E65100', fontWeight: 'bold' }}>
+                      En caso de inasistencia, presentar excusa con tiempo minimo de 3 días en el grupo.
+                    </Text>
+                  </View>
+                )}
 
                 {(rol === 'Coordinación' || comite === actividadSeleccionada.tipo) && (
                   <View style={{ marginTop: 25, borderTopWidth: 1, borderColor: '#eee', paddingTop: 10 }}>
