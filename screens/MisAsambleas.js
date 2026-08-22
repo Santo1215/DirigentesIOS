@@ -2,29 +2,31 @@ import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Alert, ScrollView, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '../api';
-import { UserContext } from '../context/UserContext'; 
+import { UserContext } from '../context/UserContext';
 import SectionTitle from '../components/TituloSeccion';
 import BottomNav from '../components/navbar';
 import WaveBackground from '../components/WaveBackground';
 import FechaPicker from '../components/FechaPicker';
-
+import BotonCalificarAsamblea from '../components/BotonCalificarAsamblea';
 
 export default function MisAsambleas({ navigation }) {
   const { user } = useContext(UserContext);
-  
+
   const idUsuarioActual = user?.dirigente?.id_dirigente || user?.dirigente?.id || 1;
   const nombreUsuarioActual = user?.dirigente ? `${user.dirigente.nombre} ${user.dirigente.apellido}` : 'Usuario';
 
-  // 1. Quitar los mock data
+  // Validar rol para el botón de calificación
+  const rolUsuario = (user?.dirigente?.rol || user?.dirigente?.cargo || '').toLowerCase();
+  const esCoordinacionONombrado = rolUsuario.includes('coordinación') || rolUsuario.includes('coord') || rolUsuario.includes('nombrado');
+
   const [asambleas, setAsambleas] = useState([]);
   const [dirigentes, setDirigentes] = useState([]);
   const [materialesDB, setMaterialesDB] = useState([]);
-  
+
   const [modalVisible, setModalVisible] = useState(false);
   const [modalDirigentesVisible, setModalDirigentesVisible] = useState(false);
   const [modalOtrosEncargadosVisible, setModalOtrosEncargadosVisible] = useState(false);
   const [campoSeleccion, setCampoSeleccion] = useState('');
-
   const [modoEdicion, setModoEdicion] = useState(false);
   const [idAsambleaEditando, setIdAsambleaEditando] = useState(null);
 
@@ -69,7 +71,7 @@ export default function MisAsambleas({ navigation }) {
   const toggleMaterial = (id, nombreMaterial) => {
     setMaterialesSeleccionados(prev => {
       const nuevoEstado = { ...prev };
-      if (nuevoEstado[id]) delete nuevoEstado[id]; 
+      if (nuevoEstado[id]) delete nuevoEstado[id];
       else nuevoEstado[id] = { nombre: nombreMaterial, cantidad: 1 };
       return nuevoEstado;
     });
@@ -82,7 +84,7 @@ export default function MisAsambleas({ navigation }) {
     setNuevaAsamblea(prev => {
       const idDirigente = dirigente.id_dirigente || dirigente.id;
       const existe = prev.otrosEncargados.find(d => (d.id_dirigente || d.id) === idDirigente);
-      return existe 
+      return existe
         ? { ...prev, otrosEncargados: prev.otrosEncargados.filter(d => (d.id_dirigente || d.id) !== idDirigente) }
         : { ...prev, otrosEncargados: [...prev.otrosEncargados, dirigente] };
     });
@@ -96,10 +98,9 @@ export default function MisAsambleas({ navigation }) {
   };
 
   const abrirModalEditar = (asamblea) => {
-    setModoEdicion(true); 
+    setModoEdicion(true);
     setIdAsambleaEditando(asamblea.id_asamblea);
 
-    // Pre-rellenar encargado de pitar
     const encargadoPitarPrefill = asamblea.id_encargado_pitar ? {
       id_dirigente: asamblea.id_encargado_pitar,
       nombre: asamblea.pitar_nombre,
@@ -107,7 +108,6 @@ export default function MisAsambleas({ navigation }) {
       foto: asamblea.pitar_foto || null
     } : null;
 
-    // Pre-rellenar encargado de tiempo
     const encargadoTiempoPrefill = asamblea.id_encargado_tiempo ? {
       id_dirigente: asamblea.id_encargado_tiempo,
       nombre: asamblea.tiempo_nombre,
@@ -115,7 +115,6 @@ export default function MisAsambleas({ navigation }) {
       foto: asamblea.tiempo_foto || null
     } : null;
 
-    // Pre-rellenar otros encargados: buscar coincidencias por nombre completo
     let otrosEncargadosPrefill = [];
     try {
       const raw = asamblea.otros_encargados;
@@ -125,12 +124,10 @@ export default function MisAsambleas({ navigation }) {
           nombresGuardados.includes(`${d.nombre} ${d.apellido}`)
         );
       }
-    } catch (_) {}
+    } catch (_) { }
 
-    // Pre-rellenar materiales: separar los de la checklist de los custom
     const materialesSelPrefill = {};
     let textoPrefill = '';
-
     const materialesStr = asamblea.materiales || '';
     if (materialesStr && materialesStr !== 'Sin materiales especificados') {
       const partes = materialesStr.split(', ');
@@ -140,7 +137,6 @@ export default function MisAsambleas({ navigation }) {
         const idMat = mat.id_material || mat.id;
         const nombreMat = mat.nombre_material || mat.nombre || 'Material';
         for (const parte of partes) {
-          // Formato guardado: "NombreMaterial (cantidad)"
           const regex = new RegExp(`^${nombreMat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\((\\d+)\\)$`);
           const match = parte.match(regex);
           if (match) {
@@ -150,8 +146,6 @@ export default function MisAsambleas({ navigation }) {
           }
         }
       }
-
-      // Lo que no coincidió con ningún material de la DB → va al campo de texto
       const noMatchadas = partes.filter(p => !partidasMatcheadas.has(p));
       textoPrefill = noMatchadas.join(', ');
     }
@@ -183,7 +177,6 @@ export default function MisAsambleas({ navigation }) {
     let listaMats = Object.values(materialesSeleccionados).map(m => `${m.nombre} (${m.cantidad})`).join(', ');
     if (opcionOtroActiva && textoOtroMaterial.trim()) listaMats += listaMats ? `, ${textoOtroMaterial}` : textoOtroMaterial;
 
-    // Construir array de nombres completos para otros_encargados
     const otrosEncargadosNombres = nuevaAsamblea.otrosEncargados.map(d => `${d.nombre} ${d.apellido}`);
 
     const payload = {
@@ -217,12 +210,14 @@ export default function MisAsambleas({ navigation }) {
   const eliminarAsamblea = (id) => {
     Alert.alert("Eliminar Asamblea", "¿Estás seguro de que deseas eliminarla?", [
       { text: "Cancelar", style: "cancel" },
-      { text: "Eliminar", style: "destructive", onPress: async () => {
+      {
+        text: "Eliminar", style: "destructive", onPress: async () => {
           try {
             const res = await fetch(`${API_URL}/asambleas/${id}`, { method: 'DELETE' });
             if (res.ok) cargarAsambleas();
           } catch (e) { console.error(e); }
-      }}
+        }
+      }
     ]);
   };
 
@@ -236,10 +231,10 @@ export default function MisAsambleas({ navigation }) {
     <View style={styles.container}>
       <WaveBackground style={{ pointerEvents: 'none' }} />
       <SectionTitle title="Asambleas" showBackButton={true} onBackPress={() => navigation.goBack()} />
-      
+
       <View style={styles.listaContainer}>
         <Text style={styles.tituloSeccion}>Listado de Asambleas</Text>
-        
+
         {asambleasOrdenadas.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="calendar-outline" size={60} color="#ccc" />
@@ -249,20 +244,19 @@ export default function MisAsambleas({ navigation }) {
         ) : (
           <ScrollView showsVerticalScrollIndicator={false}>
             {asambleasOrdenadas.map((asamblea) => {
-              // Parsear otros_encargados para chequear si el usuario actual está incluido
               let otrosNombres = [];
               try {
                 const raw = asamblea.otros_encargados;
                 const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
                 if (Array.isArray(parsed)) otrosNombres = parsed;
-              } catch (_) {}
+              } catch (_) { }
 
               const esMía = asamblea.id_encargado === idUsuarioActual
                 || otrosNombres.includes(nombreUsuarioActual);
 
               return (
-                <View 
-                  key={asamblea.id_asamblea} 
+                <View
+                  key={asamblea.id_asamblea}
                   style={[styles.asambleaCard, esMía && styles.asambleaCardMia]}
                 >
                   {esMía && (
@@ -273,20 +267,23 @@ export default function MisAsambleas({ navigation }) {
 
                   <View style={styles.cardHeader}>
                     <Text style={styles.cardTitle}>{asamblea.titulo}</Text>
-                    
-                    {/* Botones de acción visibles SOLO si es tu asamblea */}
-                    {esMía && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <TouchableOpacity style={{ marginRight: 12 }} onPress={() => abrirModalEditar(asamblea)}>
-                          <Ionicons name="pencil-outline" size={20} color="#FFA726" />
-                        </TouchableOpacity> 
-                        <TouchableOpacity onPress={() => eliminarAsamblea(asamblea.id_asamblea)}>
-                          <Ionicons name="trash-outline" size={20} color="#E50F0F" />
-                        </TouchableOpacity>
-                      </View>
-                    )}
+
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+
+                      {/* Botones de acción visibles SOLO si es tu asamblea */}
+                      {esMía && (
+                        <>
+                          <TouchableOpacity style={{ marginRight: 12 }} onPress={() => abrirModalEditar(asamblea)}>
+                            <Ionicons name="pencil-outline" size={20} color="#FFA726" />
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => eliminarAsamblea(asamblea.id_asamblea)}>
+                            <Ionicons name="trash-outline" size={20} color="#E50F0F" />
+                          </TouchableOpacity>
+                        </>
+                      )}
+                    </View>
                   </View>
-                  
+
                   <View style={styles.cardRow}>
                     <Ionicons name="person-outline" size={18} color="#666" />
                     <Text style={styles.cardLabel}>Organiza:</Text>
@@ -294,9 +291,9 @@ export default function MisAsambleas({ navigation }) {
                       {asamblea.encargado_nombre ? `${asamblea.encargado_nombre} ${asamblea.encargado_apellido}` : asamblea.dirigente || 'Sin asignar'}
                     </Text>
                   </View>
-                  
+
                   <View style={styles.cardRow}>
-                    <Ionicons name="time-outline" size={18} color="#666" />
+                    <Ionicons name="megaphone-outline" size={18} color="#666" />
                     <Text style={styles.cardLabel}>Pitar:</Text>
                     <Text style={styles.cardValue}>
                       {asamblea.pitar_nombre ? `${asamblea.pitar_nombre} ${asamblea.pitar_apellido}` : 'No asignado'}
@@ -304,7 +301,7 @@ export default function MisAsambleas({ navigation }) {
                   </View>
 
                   <View style={styles.cardRow}>
-                    <Ionicons name="timer-outline" size={18} color="#666" />
+                    <Ionicons name="time-outline" size={18} color="#666" />
                     <Text style={styles.cardLabel}>Tiempo:</Text>
                     <Text style={styles.cardValue}>
                       {asamblea.tiempo_nombre ? `${asamblea.tiempo_nombre} ${asamblea.tiempo_apellido}` : 'No asignado'}
@@ -324,16 +321,26 @@ export default function MisAsambleas({ navigation }) {
                       })()}
                     </Text>
                   </View>
-                  
+
                   <View style={[styles.cardRow, { alignItems: 'flex-start', marginTop: 4 }]}>
                     <Ionicons name="cube-outline" size={18} color="#666" style={{ marginTop: 2 }} />
                     <Text style={styles.cardLabel}>Materiales:</Text>
                   </View>
                   <Text style={styles.cardMateriales}>{asamblea.materiales}</Text>
-                  
+
                   <View style={styles.cardFooter}>
                     <Text style={styles.cardDate}>📅 {asamblea.fecha}</Text>
                   </View>
+                  {/* Validar rol para mostrar el botón */}
+                    {esCoordinacionONombrado && (
+                      <View style={{ marginTop: 10 }}>
+                        <BotonCalificarAsamblea 
+                          asamblea={asamblea} 
+                          idDirigente={idUsuarioActual} 
+                          onCalificado={() => cargarAsambleas()} 
+                        />
+                      </View>
+                    )}
                 </View>
               );
             })}
@@ -341,7 +348,7 @@ export default function MisAsambleas({ navigation }) {
         )}
       </View>
 
-      <TouchableOpacity style={styles.fab} onPress={abrirModalCrear}> 
+      <TouchableOpacity style={styles.fab} onPress={abrirModalCrear}>
         <Ionicons name="add" size={30} color="#fff" />
       </TouchableOpacity>
 
@@ -350,9 +357,8 @@ export default function MisAsambleas({ navigation }) {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: '#fff', width: '90%', maxHeight: '90%' }]}>
             <Text style={styles.modalTitle}>{modoEdicion ? 'Editar Asamblea' : 'Nueva Asamblea'}</Text>
-            
+
             <ScrollView showsVerticalScrollIndicator={false}>
-              
               <Text style={styles.label}>Título de la asamblea:</Text>
               <TextInput
                 style={styles.input}
@@ -362,8 +368,8 @@ export default function MisAsambleas({ navigation }) {
               />
 
               <Text style={styles.label}>Otros encargados (Selección múltiple):</Text>
-              <TouchableOpacity 
-                style={styles.selectorEncargado} 
+              <TouchableOpacity
+                style={styles.selectorEncargado}
                 onPress={() => setModalOtrosEncargadosVisible(true)}
               >
                 {nuevaAsamblea.otrosEncargados.length > 0 ? (
@@ -377,8 +383,8 @@ export default function MisAsambleas({ navigation }) {
               </TouchableOpacity>
 
               <FechaPicker fechaObj={nuevaAsamblea.fecha} onFechaChange={(fecha) => setNuevaAsamblea({ ...nuevaAsamblea, fecha })} />
-              
-              <Text style={styles.label}>Descripción:</Text>  
+
+              <Text style={styles.label}>Descripción:</Text>
               <TextInput
                 style={[styles.input, styles.textArea, { marginTop: 8 }]}
                 placeholder="Especifique detalles..."
@@ -419,10 +425,10 @@ export default function MisAsambleas({ navigation }) {
               </TouchableOpacity>
 
               <Text style={[styles.label, { marginTop: 10, borderTopWidth: 1, paddingTop: 10, borderColor: '#eee' }]}>Materiales necesarios:</Text>
-              
+
               <View style={styles.checklistContainer}>
                 {materialesDB.map((mat) => {
-                  const itemId = mat.id_material || mat.id; 
+                  const itemId = mat.id_material || mat.id;
                   const nombreMaterial = mat.nombre_material || mat.nombre || 'Material';
                   const isChecked = !!materialesSeleccionados[itemId];
 
@@ -432,7 +438,7 @@ export default function MisAsambleas({ navigation }) {
                         <Ionicons name={isChecked ? "checkbox" : "square-outline"} size={24} color={isChecked ? "#FFA726" : "#aaa"} />
                         <Text style={styles.checkItemText}>{nombreMaterial}</Text>
                       </TouchableOpacity>
-                      
+
                       {isChecked && (
                         <View style={styles.stepperContainer}>
                           <TouchableOpacity style={styles.stepperBtn} onPress={() => decrementarCantidad(itemId)}>
@@ -475,7 +481,6 @@ export default function MisAsambleas({ navigation }) {
                   <Text style={{ color: '#fff', fontWeight: 'bold' }}>{modoEdicion ? 'Actualizar' : 'Guardar'}</Text>
                 </TouchableOpacity>
               </View>
-
             </ScrollView>
           </View>
         </View>
@@ -487,7 +492,7 @@ export default function MisAsambleas({ navigation }) {
           <View style={[styles.modalContent, { width: '85%', maxHeight: '70%', padding: 15 }]}>
             <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 5, textAlign: 'center' }}>Seleccionar Dirigente</Text>
             {campoSeleccion === 'encargadoPitar' && (
-               <Text style={{ fontSize: 12, color: '#888', textAlign: 'center', marginBottom: 15 }}>*Solo Nombrado o Coordinación</Text>
+              <Text style={{ fontSize: 12, color: '#888', textAlign: 'center', marginBottom: 15 }}>*Solo Nombrado o Coordinación</Text>
             )}
             <ScrollView showsVerticalScrollIndicator={false}>
               {dirigentesMostrar.length === 0 ? (
@@ -520,22 +525,22 @@ export default function MisAsambleas({ navigation }) {
             <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' }}>
               Seleccionar Otros Encargados
             </Text>
-            
+
             <ScrollView showsVerticalScrollIndicator={false}>
               {dirigentes.map(d => {
                 const idDirigente = d.id_dirigente || d.id;
                 const isChecked = nuevaAsamblea.otrosEncargados.some(enc => (enc.id_dirigente || enc.id) === idDirigente);
 
                 return (
-                  <TouchableOpacity 
-                    key={idDirigente} 
-                    style={styles.dirigenteOptionRow} 
+                  <TouchableOpacity
+                    key={idDirigente}
+                    style={styles.dirigenteOptionRow}
                     onPress={() => toggleOtroEncargado(d)}
                   >
-                    <Ionicons 
-                      name={isChecked ? "checkbox" : "square-outline"} 
-                      size={24} 
-                      color={isChecked ? "#FFA726" : "#aaa"} 
+                    <Ionicons
+                      name={isChecked ? "checkbox" : "square-outline"}
+                      size={24}
+                      color={isChecked ? "#FFA726" : "#aaa"}
                       style={{ marginRight: 10 }}
                     />
                     <View style={styles.avatarList}>
@@ -554,8 +559,8 @@ export default function MisAsambleas({ navigation }) {
               })}
             </ScrollView>
 
-            <TouchableOpacity 
-              style={{ padding: 12, backgroundColor: '#FFA726', borderRadius: 8, marginTop: 10, alignItems: 'center' }} 
+            <TouchableOpacity
+              style={{ padding: 12, backgroundColor: '#FFA726', borderRadius: 8, marginTop: 10, alignItems: 'center' }}
               onPress={() => setModalOtrosEncargadosVisible(false)}
             >
               <Text style={{ fontWeight: 'bold', color: '#fff' }}>Confirmar Selección</Text>
@@ -563,7 +568,6 @@ export default function MisAsambleas({ navigation }) {
           </View>
         </View>
       </Modal>
-
 
       <BottomNav navigation={navigation} />
     </View>
@@ -577,10 +581,10 @@ const styles = StyleSheet.create({
   emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 80 },
   emptyText: { fontSize: 16, color: '#666', marginTop: 15, fontWeight: '500' },
   emptySubtext: { fontSize: 14, color: '#999', marginTop: 5, textAlign: 'center' },
-  
+
   asambleaCard: { backgroundColor: '#fff', borderRadius: 12, padding: 15, marginBottom: 12, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3, borderWidth: 1, borderColor: '#eee' },
   asambleaCardMia: { borderColor: '#FFA726', backgroundColor: '#fffdf9', borderWidth: 1.5 },
-  
+
   badgeMia: { position: 'absolute', top: -10, right: 15, backgroundColor: '#FFA726', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
   badgeMiaText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
 
@@ -592,16 +596,16 @@ const styles = StyleSheet.create({
   cardMateriales: { fontSize: 14, color: '#333', marginLeft: 26, marginBottom: 8, fontStyle: 'italic' },
   cardFooter: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
   cardDate: { fontSize: 12, color: '#888', fontWeight: '600' },
-  
+
   fab: { position: 'absolute', right: 20, bottom: 100, backgroundColor: '#FFA726', width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3 },
-  
+
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { backgroundColor: '#fef1e6', borderRadius: 16, padding: 20, elevation: 10 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'center', color: '#333' },
   label: { color: '#555', marginBottom: 5, fontSize: 14, fontWeight: '500' },
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, marginBottom: 15, backgroundColor: '#fafafa', fontSize: 14 },
   textArea: { height: 80, textAlignVertical: 'top' },
-  
+
   button: { flex: 1, padding: 12, borderRadius: 8, alignItems: 'center', marginHorizontal: 5 },
   modalButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 15 },
 
@@ -609,7 +613,7 @@ const styles = StyleSheet.create({
   encargadoSeleccionadoRow: { flexDirection: 'row', alignItems: 'center' },
   avatarMini: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#ddd', alignItems: 'center', justifyContent: 'center', marginRight: 8, overflow: 'hidden' },
   avatarImageMini: { width: '100%', height: '100%', resizeMode: 'cover' },
-  
+
   dirigenteOptionRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#eee' },
   avatarList: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#ddd', alignItems: 'center', justifyContent: 'center', marginRight: 15, overflow: 'hidden' },
   avatarImage: { width: '100%', height: '100%', resizeMode: 'cover' },
@@ -619,7 +623,7 @@ const styles = StyleSheet.create({
   checkItemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f5f5f5' },
   checkboxTouch: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   checkItemText: { marginLeft: 10, fontSize: 15, color: '#333', flex: 1 },
-  
+
   stepperContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fafafa', borderRadius: 6, borderWidth: 1, borderColor: '#ddd' },
   stepperBtn: { padding: 5, backgroundColor: '#eee', borderRadius: 4 },
   stepperValue: { fontSize: 15, fontWeight: 'bold', width: 30, textAlign: 'center', color: '#333' },

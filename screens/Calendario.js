@@ -11,6 +11,7 @@ import SectionTitle from '../components/TituloSeccion';
 import BottomNav from '../components/navbar';
 import WaveBackground from '../components/WaveBackground';
 import FechaPicker from '../components/FechaPicker';
+import BotonCalificarAsamblea from '../components/BotonCalificarAsamblea';
 
 LocaleConfig.locales['es'] = {
   monthNames: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
@@ -86,7 +87,7 @@ const fetchEventos = async () => {
     formatted[dateStr].push({ key: `act_${act.id_actividad}`, color, ...act });
   });
       
-    // Procesar Asambleas
+   // Procesar Asambleas
     const arrAsam = Array.isArray(dataAsam) ? dataAsam : (dataAsam.asambleas || []);
     arrAsam.forEach((asm) => {
       const dateStr = String(asm.fecha).substring(0, 10);
@@ -94,11 +95,9 @@ const fetchEventos = async () => {
       formatted[dateStr].push({ 
         key: `asm_${asm.id_asamblea}`, 
         color: coloresTipos['asamblea'], 
-        titulo: asm.titulo,
         tipo: 'Asamblea',
-        fecha: asm.fecha,
-        descripcion: asm.descripcion,
-        esAsamblea: true // Bandera útil para lógica
+        esAsamblea: true,
+        ...asm
       });
     });
 
@@ -283,7 +282,18 @@ const fetchEventos = async () => {
                 <Text style={styles.detailLabel}>Título:</Text><Text style={styles.detailValue}>{actividadSeleccionada.titulo}</Text>
                 <Text style={styles.detailLabel}>Fecha:</Text><Text style={styles.detailValue}>{actividadSeleccionada.fecha?.substring(0, 10)}</Text>
                 <Text style={styles.detailLabel}>Tipo / Comité:</Text><Text style={styles.detailValue}>{actividadSeleccionada.tipo}</Text>
-                {rol === 'Coordinación' && (<><Text style={styles.detailLabel}>Responsable:</Text><Text style={styles.detailValue}>{actividadSeleccionada.responsable}</Text></>)}
+                {(rol === 'Coordinación' || actividadSeleccionada.esAsamblea) && (
+                  <>
+                    <Text style={styles.detailLabel}>Responsable / Encargado:</Text>
+                    <Text style={styles.detailValue}>
+                      {actividadSeleccionada.esAsamblea 
+                        ? (actividadSeleccionada.encargado_nombre 
+                            ? `${actividadSeleccionada.encargado_nombre} ${actividadSeleccionada.encargado_apellido || ''}`.trim() 
+                            : 'Sin asignar')
+                        : actividadSeleccionada.responsable}
+                    </Text>
+                  </>
+                )}
                 <Text style={styles.detailLabel}>Descripción:</Text><Text style={styles.detailValue}>{actividadSeleccionada.descripcion}</Text>
 
                 {estaBloqueadaConfirmacion(actividadSeleccionada.fecha) && (
@@ -292,34 +302,65 @@ const fetchEventos = async () => {
                   </Text>
                 )}
 
-                {!actividadSeleccionada.esAsamblea ? (
+                {actividadSeleccionada.esAsamblea ? (
+                  <View style={styles.asambleaCardContainer}>
+                    <View style={styles.asambleaAvisoBox}>
+                      <Ionicons name="information-circle-outline" size={18} color="#D97706" />
+                      <Text style={styles.asambleaAvisoText}>
+                        En caso de inasistencia, presentar excusa con un tiempo mínimo de 3 días en el grupo.
+                      </Text>
+                    </View>
+
+                    <BotonCalificarAsamblea 
+                      asamblea={actividadSeleccionada} 
+                      idDirigente={user.dirigente.id_dirigente} 
+                      onCalificado={() => fetchEventos()} 
+                    />
+                  </View>
+                ) : (
                   <View style={{ marginTop: 15 }}>
-                    <Text style={styles.detailLabel}>¿Asistirás a esta actividad?:</Text>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+                    <Text style={styles.detailLabel}>¿Asistirás a esta actividad?</Text>
+                    <View style={styles.asistenciaBotonesRow}>
                       <TouchableOpacity 
-                        style={[styles.button, { backgroundColor: miEstadoAsistencia === 'si' ? '#4CAF50' : '#e0e0e0' }]} 
+                        style={[
+                          styles.btnAsistencia, 
+                          miEstadoAsistencia === 'si' && styles.btnAsistenciaSiActivo
+                        ]} 
                         onPress={() => registrarAsistencia('si')}
+                        activeOpacity={0.8}
                       >
-                        <Text style={{ color: miEstadoAsistencia === 'si' ? '#fff' : '#333', fontWeight: 'bold' }}>Sí Asistiré</Text>
+                        <Ionicons 
+                          name={miEstadoAsistencia === 'si' ? "checkmark-circle" : "checkmark-circle-outline"} 
+                          size={18} 
+                          color={miEstadoAsistencia === 'si' ? "#FFF" : "#475569"} 
+                        />
+                        <Text style={[styles.btnAsistenciaText, miEstadoAsistencia === 'si' && styles.textActivo]}>
+                          Sí Asistiré
+                        </Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity 
-                        style={[styles.button, { backgroundColor: miEstadoAsistencia === 'no' ? '#F44336' : '#e0e0e0' }]} 
+                        style={[
+                          styles.btnAsistencia, 
+                          miEstadoAsistencia === 'no' && styles.btnAsistenciaNoActivo
+                        ]} 
                         onPress={() => registrarAsistencia('no')}
+                        activeOpacity={0.8}
                       >
-                        <Text style={{ color: miEstadoAsistencia === 'no' ? '#fff' : '#333', fontWeight: 'bold' }}>No Asistiré</Text>
+                        <Ionicons 
+                          name={miEstadoAsistencia === 'no' ? "close-circle" : "close-circle-outline"} 
+                          size={18} 
+                          color={miEstadoAsistencia === 'no' ? "#FFF" : "#475569"} 
+                        />
+                        <Text style={[styles.btnAsistenciaText, miEstadoAsistencia === 'no' && styles.textActivo]}>
+                          No Asistiré
+                        </Text>
                       </TouchableOpacity>
                     </View>
                   </View>
-                ) : (
-                  <View style={{ marginTop: 15, padding: 10, backgroundColor: '#FFF3E0', borderRadius: 8 }}>
-                    <Text style={{ textAlign: 'center', color: '#E65100', fontWeight: 'bold' }}>
-                      En caso de inasistencia, presentar excusa con tiempo minimo de 3 días en el grupo.
-                    </Text>
-                  </View>
                 )}
 
-                {(rol === 'Coordinación' || comite === actividadSeleccionada.tipo) && (
+                {(!actividadSeleccionada.esAsamblea && (rol === 'Coordinación' || comite === actividadSeleccionada.tipo)) && (
                   <View style={{ marginTop: 25, borderTopWidth: 1, borderColor: '#eee', paddingTop: 10 }}>
                     <Text style={styles.detailLabel}>Confirmaron Asistencia ({losQueVan.length}):</Text>
                     {losQueVan.map(a => (
@@ -443,4 +484,64 @@ const styles = StyleSheet.create({
   avatarContainer: { width: 26, height: 26, borderRadius: 13, backgroundColor: '#e0e0e0', alignItems: 'center', justifyContent: 'center', marginRight: 8, overflow: 'hidden' },
   avatarImage: { width: '100%', height: '100%', resizeMode: 'cover' },
   detailValueInline: { fontSize: 14, fontWeight: '500' },
+  asambleaCardContainer: {
+    marginTop: 15,
+    backgroundColor: '#FFF8F0',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#FFE0B2',
+  },
+  asambleaAvisoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FEF3C7',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  asambleaAvisoText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#92400E',
+    lineHeight: 16,
+    fontWeight: '500',
+  },
+  asistenciaBotonesRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+  },
+  btnAsistencia: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 6,
+  },
+  btnAsistenciaSiActivo: {
+    backgroundColor: '#10B981',
+    borderColor: '#059669',
+  },
+  btnAsistenciaNoActivo: {
+    backgroundColor: '#EF4444',
+    borderColor: '#DC2626',
+  },
+  btnAsistenciaText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  textActivo: {
+    color: '#FFFFFF',
+  },
 });
