@@ -51,8 +51,8 @@ export default function ModalCalificacionAsamblea({
       const data = await res.json();
       if (data.calificacion) {
         setCalificacionPrevia(data.calificacion);
-        setEstrellas(data.calificacion.estrellas);
-        setResena(data.calificacion.resena);
+        setEstrellas(Number(data.calificacion.estrellas) || 0);
+        setResena(data.calificacion.resena || '');
       }
     } catch (err) {
       console.error('Error cargando calificación previa:', err);
@@ -62,26 +62,27 @@ export default function ModalCalificacionAsamblea({
   };
 
   const animarEstrella = (index) => {
-    Animated.sequence([
-      Animated.spring(starAnims[index], {
-        toValue: 1.3,
-        useNativeDriver: true,
-        speed: 40,
-        bounciness: 10,
-      }),
-      Animated.spring(starAnims[index], {
-        toValue: 1,
-        useNativeDriver: true,
-        speed: 30,
-        bounciness: 6,
-      }),
-    ]).start();
+    if (index >= 0 && index < starAnims.length) {
+      Animated.sequence([
+        Animated.spring(starAnims[index], {
+          toValue: 1.3,
+          useNativeDriver: true,
+          speed: 40,
+          bounciness: 10,
+        }),
+        Animated.spring(starAnims[index], {
+          toValue: 1,
+          useNativeDriver: true,
+          speed: 30,
+          bounciness: 6,
+        }),
+      ]).start();
+    }
   };
 
   const seleccionarEstrellaConMitades = (valorEntero, event) => {
     if (calificacionPrevia) return;
 
-    // Calculamos si se presionó la mitad izquierda o derecha de la estrella
     const { locationX } = event.nativeEvent;
     const esMitad = locationX < 20; 
     const valorFinal = esMitad ? valorEntero - 0.5 : valorEntero;
@@ -89,14 +90,20 @@ export default function ModalCalificacionAsamblea({
     setEstrellas(valorFinal);
     
     const indexAnim = Math.floor(valorFinal) - (esMitad ? 1 : 0);
-    if (indexAnim >= 0 && indexAnim < starAnims.length) {
-      animarEstrella(indexAnim);
-    }
+    animarEstrella(indexAnim);
+  };
+
+  const seleccionarValorDirecto = (valor) => {
+    if (calificacionPrevia) return;
+    setEstrellas(valor);
+    const indexAnim = Math.floor(valor) - (valor % 1 !== 0 ? 0 : 1);
+    animarEstrella(indexAnim);
   };
 
   const guardarCalificacion = async () => {
-    if (estrellas === 0) {
-      Alert.alert('Calificación requerida', 'Por favor selecciona al menos 1 estrella.');
+    const numEstrellas = Number(estrellas) || 0;
+    if (numEstrellas === 0) {
+      Alert.alert('Calificación requerida', 'Por favor selecciona al menos 0.5 estrellas.');
       return;
     }
     if (!resena.trim() || resena.trim().length < 10) {
@@ -116,7 +123,7 @@ export default function ModalCalificacionAsamblea({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             id_dirigente: idDirigente,
-            estrellas,
+            estrellas: numEstrellas,
             resena: resena.trim(),
           }),
         }
@@ -150,15 +157,12 @@ export default function ModalCalificacionAsamblea({
     }
   };
 
-  // Obtener nombre del encargado principal
   const encargadoNombre = asamblea?.encargado_nombre
     ? `${asamblea.encargado_nombre} ${asamblea.encargado_apellido || ''}`.trim()
     : asamblea?.dirigente || 'Sin asignar';
 
-  // Obtener foto del encargado principal
   const encargadoFoto = asamblea?.encargado_foto || asamblea?.foto_encargado || asamblea?.foto || null;
 
-  // Parsear otros encargados
   const otrosEncargadosList = (() => {
     try {
       const raw = asamblea?.otros_encargados;
@@ -170,6 +174,7 @@ export default function ModalCalificacionAsamblea({
   })();
 
   const textosEstrellas = ['', 'Muy deficiente', 'Deficiente', 'Aceptable', 'Bueno', 'Excelente'];
+  const valorNumericoActual = Number(estrellas) || 0;
 
   if (!asamblea) return null;
 
@@ -248,27 +253,27 @@ export default function ModalCalificacionAsamblea({
 
             <View style={styles.divisor} />
 
-            {/* BANNER YA CALIFICADO / NO EDITABLE */}
+            {/* BANNER YA CALIFICADO */}
             {cargandoPrev ? (
               <ActivityIndicator size="small" color="#FFA726" style={{ marginVertical: 10 }} />
             ) : calificacionPrevia ? (
               <View style={styles.yaCalificadoBanner}>
                 <Ionicons name="information-circle-outline" size={18} color="#0284C7" />
                 <Text style={styles.yaCalificadoText}>
-                  Ya has calificado esta asamblea. Esta calificación no se puede editar ni modificar posteriormente.
+                  Ya has calificado esta asamblea.
                 </Text>
               </View>
             ) : null}
 
-            {/* SELECTOR DE ESTRELLAS PARCIALES */}
+            {/* SELECTOR DE ESTRELLAS */}
             <View style={styles.seccion}>
               <Text style={styles.seccionLabel}>Puntuación</Text>
               <View style={styles.starsRow}>
                 {[1, 2, 3, 4, 5].map((val) => {
                   let nombreIcono = 'star-outline';
-                  if (estrellas >= val) {
+                  if (valorNumericoActual >= val) {
                     nombreIcono = 'star';
-                  } else if (estrellas >= val - 0.5) {
+                  } else if (valorNumericoActual >= val - 0.5) {
                     nombreIcono = 'star-half';
                   }
 
@@ -292,10 +297,39 @@ export default function ModalCalificacionAsamblea({
                   );
                 })}
               </View>
-              {estrellas > 0 && (
+
+              {/* BARRA DESLIZABLE HORIZONTAL DE VALORES NUMÉRICOS */}
+              {!calificacionPrevia && (
+                <View style={styles.sliderContainer}>
+                  <Text style={styles.sliderHelperText}>Desliza para elegir valor exacto:</Text>
+                  <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false} 
+                    contentContainerStyle={styles.sliderScrollRow}
+                  >
+                    {[0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0].map((num) => {
+                      const seleccionado = valorNumericoActual === num;
+                      return (
+                        <TouchableOpacity
+                          key={num}
+                          style={[styles.sliderPill, seleccionado && styles.sliderPillSelected]}
+                          onPress={() => seleccionarValorDirecto(num)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.sliderPillText, seleccionado && styles.sliderPillTextSelected]}>
+                            {num.toFixed(1)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
+
+              {valorNumericoActual > 0 && (
                 <View style={styles.badgeEstrella}>
                   <Text style={styles.etiquetaEstrella}>
-                    {estrellas} / 5 - {textosEstrellas[Math.ceil(estrellas)] || 'Excelente'}
+                    {valorNumericoActual.toFixed(1)} / 5 - {textosEstrellas[Math.ceil(valorNumericoActual)] || 'Excelente'}
                   </Text>
                 </View>
               )}
@@ -344,10 +378,10 @@ export default function ModalCalificacionAsamblea({
               <TouchableOpacity
                 style={[
                   styles.btnGuardar,
-                  (guardando || estrellas === 0) && styles.btnGuardarDisabled,
+                  (guardando || valorNumericoActual === 0) && styles.btnGuardarDisabled,
                 ]}
                 onPress={guardarCalificacion}
-                disabled={guardando || estrellas === 0}
+                disabled={guardando || valorNumericoActual === 0}
                 activeOpacity={0.8}
               >
                 {guardando ? (
@@ -556,13 +590,64 @@ const styles = StyleSheet.create({
   starIcon: {
     marginHorizontal: 4,
   },
+  sliderContainer: {
+    marginTop: 8,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  sliderHelperText: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '600',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  sliderScrollRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sliderPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    minWidth: 46,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  sliderPillSelected: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#F59E0B',
+    borderWidth: 1.5,
+  },
+  sliderPillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  sliderPillTextSelected: {
+    color: '#D97706',
+    fontWeight: '700',
+  },
   badgeEstrella: {
     alignSelf: 'center',
     backgroundColor: '#FFF8F0',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
-    marginTop: 6,
+    marginTop: 8,
     borderWidth: 1,
     borderColor: '#FFE0B2',
   },

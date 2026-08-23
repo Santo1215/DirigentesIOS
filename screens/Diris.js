@@ -8,6 +8,7 @@ import SectionTitle from '../components/TituloSeccion';
 import WaveBackground from '../components/WaveBackground';
 import QrScannerModal from '../components/QrScannerModal';
 import CodigoManualModal from '../components/CodigoManualModal';
+import AsistenciaDirisModal from '../components/AsistenciaDirisModal';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function Diris({ navigation }) {
@@ -18,6 +19,7 @@ export default function Diris({ navigation }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [qrVisible, setQrVisible] = useState(false);
   const [codigoVisible, setCodigoVisible] = useState(false);
+  const [asistenciaModalVisible, setAsistenciaModalVisible] = useState(false);
   const [errorCarga, setErrorCarga] = useState('');
 
   useEffect(() => {
@@ -102,38 +104,16 @@ export default function Diris({ navigation }) {
             <Ionicons name="person-add-outline" size={18} color="#1E293B" />
             <Text style={styles.btnTextDark}>Agregar dirigente</Text>
           </TouchableOpacity>
+        </View>
 
+        <View style={styles.actionsRow}>
           <TouchableOpacity 
-            style={[styles.btnAgregar, styles.btnAsistenciaSecundaria]} 
-            onPress={() => navigation.navigate('AsistenciaDiris')}
+            style={styles.btnAbrirModal} 
+            onPress={() => setAsistenciaModalVisible(true)}
             activeOpacity={0.85}
           >
             <Ionicons name="calendar-outline" size={18} color="#B45309" />
-            <Text style={styles.btnTextOrange}>Asistencia</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.title}>Tomar asistencia</Text>
-
-        <View style={styles.qrCodeRow}>
-          <TouchableOpacity 
-            style={styles.btnQR} 
-            onPress={() => setQrVisible(true)}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="qr-code-outline" size={20} color="#B45309" />
-            <Text style={styles.btnTextOrange}>Escanear QR</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.btnCodigo} 
-            onPress={() => setCodigoVisible(true)}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="keypad-outline" size={20} color="#1E293B" />
-            <Text style={styles.btnTextDark}>Ingresar código</Text>
+            <Text style={styles.btnTextOrange}>Gestionar Asistencia</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -144,6 +124,15 @@ export default function Diris({ navigation }) {
         onClose={() => setModalVisible(false)} 
         onSaved={cargarDirigentes} 
       />
+
+      <AsistenciaDirisModal
+        visible={asistenciaModalVisible}
+        onClose={() => setAsistenciaModalVisible(false)}
+        onOpenQr={() => setQrVisible(true)}
+        onOpenCodigo={() => setCodigoVisible(true)}
+        onGoToAsistenciaDiris={() => navigation.navigate('AsistenciaDiris')}
+      />
+
       <QrScannerModal visible={qrVisible} onClose={() => setQrVisible(false)} user={user} />
       <CodigoManualModal visible={codigoVisible} onClose={() => setCodigoVisible(false)} user={user} />
       
@@ -178,11 +167,7 @@ const styles = StyleSheet.create({
     color: '#1E293B',
     textAlign: 'center',
   },
-  qrCodeRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  btnQR: {
+  btnAbrirModal: {
     flex: 1,
     backgroundColor: '#FEF3C7',
     paddingVertical: 14,
@@ -195,24 +180,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FCD34D',
   },
-  btnCodigo: {
-    flex: 1,
-    backgroundColor: '#F1F5F9',
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
   actionsRow: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 10,
-    marginBottom: 10,
+    marginTop: 6,
+    marginBottom: 6,
   },
   btnAgregar: {
     flex: 1,
@@ -226,10 +198,6 @@ const styles = StyleSheet.create({
     gap: 8,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-  },
-  btnAsistenciaSecundaria: {
-    backgroundColor: '#FEF3C7',
-    borderColor: '#FCD34D',
   },
   btnTextDark: {
     textAlign: 'center',
@@ -271,7 +239,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
-    overflow: 'hidden', // Asegura que la imagen respete los bordes redondeados
+    overflow: 'hidden',
   },
   avatarImage: {
     width: '100%',

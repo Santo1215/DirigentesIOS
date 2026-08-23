@@ -336,7 +336,8 @@ export default function MisAsambleas({ navigation }) {
                       <View style={{ marginTop: 10 }}>
                         <BotonCalificarAsamblea 
                           asamblea={asamblea} 
-                          idDirigente={idUsuarioActual} 
+                          idDirigente={idUsuarioActual}
+                          yaCalificado={asamblea.calificaciones?.some(c => c.id_dirigente === idUsuarioActual)}
                           onCalificado={() => cargarAsambleas()} 
                         />
                       </View>

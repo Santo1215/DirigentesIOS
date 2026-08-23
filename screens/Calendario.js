@@ -296,11 +296,7 @@ const fetchEventos = async () => {
                 )}
                 <Text style={styles.detailLabel}>Descripción:</Text><Text style={styles.detailValue}>{actividadSeleccionada.descripcion}</Text>
 
-                {estaBloqueadaConfirmacion(actividadSeleccionada.fecha) && (
-                  <Text style={{ color: '#E50F0F', fontSize: 12, marginTop: 10, textAlign: 'center', fontWeight: 'bold' }}>
-                    Ya no puedes cancelar tu asistencia (quedan 2 días o menos).
-                  </Text>
-                )}
+                
 
                 {actividadSeleccionada.esAsamblea ? (
                   <View style={styles.asambleaCardContainer}>
@@ -310,15 +306,22 @@ const fetchEventos = async () => {
                         En caso de inasistencia, presentar excusa con un tiempo mínimo de 3 días en el grupo.
                       </Text>
                     </View>
-
+                  {(rol === 'Coordinación' || rol === 'Nombrado') && (
                     <BotonCalificarAsamblea 
                       asamblea={actividadSeleccionada} 
                       idDirigente={user.dirigente.id_dirigente} 
+                      yaCalificado={actividadSeleccionada.calificaciones?.some(c => c.id_dirigente === user.dirigente.id_dirigente)}
                       onCalificado={() => fetchEventos()} 
                     />
+                  )}
                   </View>
                 ) : (
                   <View style={{ marginTop: 15 }}>
+                    {estaBloqueadaConfirmacion(actividadSeleccionada.fecha) && (
+                      <Text style={{ color: '#E50F0F', fontSize: 12, marginTop: 10, textAlign: 'center', fontWeight: 'bold' }}>
+                        Ya no puedes cancelar tu asistencia (quedan 2 días o menos).
+                      </Text>
+                    )}
                     <Text style={styles.detailLabel}>¿Asistirás a esta actividad?</Text>
                     <View style={styles.asistenciaBotonesRow}>
                       <TouchableOpacity 

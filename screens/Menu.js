@@ -5,7 +5,6 @@ import BottomNav from '../components/navbar';
 import { UserContext } from '../context/UserContext';
 import SectionTitle from '../components/TituloSeccion';
 import WaveBackground from '../components/WaveBackground';
-import ModalProximamente from '../components/ModalProximamente';
 import { API_URL } from '../api';
 import { CommonActions } from '@react-navigation/native';
 import { Linking } from 'react-native';
@@ -20,7 +19,6 @@ export default function Menu({ navigation }) {
   const [contrasenaConfirmar, setContrasenaConfirmar] = useState('');
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [modalProximamenteVisible, setModalProximamenteVisible] = useState(false);
 
   const actualizarContrasena = async () => {
     setErrorMsg('');
@@ -103,13 +101,13 @@ export default function Menu({ navigation }) {
         <View style={styles.grid}>
           <MenuItem icon="calendar-outline" label="Calendario" onPress={() => navigation.navigate('Calendario')} />
            {(rol === 'Coordinación' || rol === 'Nombrado') && (
-          <MenuItem icon="ribbon-outline" label="Calificación Asambleas" proximamente={true} onOpenProximamente={() => setModalProximamenteVisible(true)}/>
+          <MenuItem icon="ribbon-outline" label="Calificación Asambleas"  onPress={() => navigation.navigate('CalificacionesAsambleas')}/>
            )}
-           <MenuItem icon="earth-outline" label="Mi Asamblea"  onPress={() => navigation.navigate('MisAsambleas')}/>
+           <MenuItem icon="bonfire-outline" label="Mi Asamblea"  onPress={() => navigation.navigate('MisAsambleas')}/>
           <MenuItem icon="dice-outline" label="Material"  onPress={() => navigation.navigate('Material')}/>
           <MenuItem icon="document-text-outline" label="Actas" onPress={() => Linking.openURL('https://drive.google.com/drive/folders/1lzrdK3J9b7JVNWCG8GT0Njuz2-LogfOB')} />
           
-          <MenuItem icon="time-outline" label="Docs Asambleas" onPress={() => Linking.openURL('https://drive.google.com/drive/folders/17cBGA5hulhUl53DNrEYgMAtbbtq-AGpW')} />
+          <MenuItem icon="newspaper-outline" label="Docs Asambleas" onPress={() => Linking.openURL('https://drive.google.com/drive/folders/17cBGA5hulhUl53DNrEYgMAtbbtq-AGpW')} />
           <MenuItem icon="folder-open-outline" label="Carpeta General" onPress={() => Linking.openURL('https://drive.google.com/drive/folders/1xU_t1-8voZRPcwhQWz5_U38-D7liQzD-?usp=sharing')} />
           
           <MenuItem icon="lock-closed-outline" label="Contraseña" onPress={() => setModalPassVisible(true)}/>
@@ -205,12 +203,7 @@ export default function Menu({ navigation }) {
 
           </View>
         </TouchableWithoutFeedback>
-      </Modal>
-
-       <ModalProximamente 
-        visible={modalProximamenteVisible} 
-        onClose={() => setModalProximamenteVisible(false)} 
-      />         
+      </Modal>       
       <BottomNav navigation={navigation} />
     </View>
   );

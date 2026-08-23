@@ -11,6 +11,9 @@ import SectionTitle from '../components/TituloSeccion';
 import WaveBackground from '../components/WaveBackground';
 import { API_URL } from '../api';
 import ModalProximamente from '../components/ModalProximamente';
+import AsistenciaDirisModal from '../components/AsistenciaDirisModal';
+import QrScannerModal from '../components/QrScannerModal';
+import CodigoManualModal from '../components/CodigoManualModal';
 
 let DateTimePicker = null;
 if (Platform.OS !== 'web') {
@@ -113,10 +116,16 @@ function DateField({ label, value, onChange }) {
     </View>
   );
 }
+
 export default function AsistenciaMenu({ navigation }) {
   const { user } = useContext(UserContext);
   const [token, setToken] = useState(null);
   const [modalProximamenteVisible, setModalProximamenteVisible] = useState(false);
+  
+  /* Estados para los modales de asistencia de Diris */
+  const [asistenciaDirisModalVisible, setAsistenciaDirisModalVisible] = useState(false);
+  const [qrVisible, setQrVisible] = useState(false);
+  const [codigoVisible, setCodigoVisible] = useState(false);
   
   /* Notificación */
   const [enviandoNotif, setEnviandoNotif] = useState(false);
@@ -202,10 +211,11 @@ export default function AsistenciaMenu({ navigation }) {
       <SectionTitle title="Asistencia" />
       
       <ScrollView contentContainerStyle={styles.contentWrapper} showsVerticalScrollIndicator={false}>
+        
         <MenuItem 
           icon="checkbox-outline" 
-          label="Asistencia" 
-          subtitle="Verificar asistencia"
+          label="Asistencia de Tribus" 
+          subtitle="Verificar asistencia de todas las tribus"
           onPress={() => navigation.navigate('AsistenciaTribus')} 
         />
         <MenuItem 
@@ -222,6 +232,12 @@ export default function AsistenciaMenu({ navigation }) {
           onOpenProximamente={() => setModalProximamenteVisible(true)} 
         />
         <MenuItem 
+          icon="qr-code-outline" 
+          label="Asistencia de Dirigentes" 
+          subtitle="Escanear QR o ingresar código"
+          onPress={() => setAsistenciaDirisModalVisible(true)} 
+        />
+        <MenuItem 
           icon="notifications-outline" 
           label="Enviar Recordatorio" 
           subtitle="Avisar a los dirigentes"
@@ -230,6 +246,17 @@ export default function AsistenciaMenu({ navigation }) {
       </ScrollView>
 
       <BottomNav navigation={navigation} />
+
+      <AsistenciaDirisModal
+        visible={asistenciaDirisModalVisible}
+        onClose={() => setAsistenciaDirisModalVisible(false)}
+        onOpenQr={() => setQrVisible(true)}
+        onOpenCodigo={() => setCodigoVisible(true)}
+        onGoToAsistenciaDiris={() => navigation.navigate('AsistenciaDiris')}
+      />
+
+      <QrScannerModal visible={qrVisible} onClose={() => setQrVisible(false)} user={user} />
+      <CodigoManualModal visible={codigoVisible} onClose={() => setCodigoVisible(false)} user={user} />
 
       {/* ── Modal confirmación notificación ── */}
       <Modal transparent animationType="fade" visible={notifModal} onRequestClose={() => setNotifModal(false)}>

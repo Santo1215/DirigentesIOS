@@ -32,6 +32,7 @@ import AsistenciaMenu from './screens/AsistenciaMenu';
 import Calendario from './screens/Calendario';
 import Material from './screens/Material';
 import MisAsambleas from './screens/MisAsambleas';
+import CalificacionesAsambleas from './screens/CalificacionesAsambleas';
 
 const Stack = createNativeStackNavigator();
 
@@ -55,6 +56,7 @@ export default function App() {
           <Stack.Screen name="Calendario" component={Calendario} />
           <Stack.Screen name="Material" component={Material} />
           <Stack.Screen name="MisAsambleas" component={MisAsambleas} />
+          <Stack.Screen name="CalificacionesAsambleas" component={CalificacionesAsambleas} />
         </Stack.Navigator>
       </NavigationContainer>
     </UserContext.Provider>
