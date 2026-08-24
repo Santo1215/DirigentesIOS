@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { API_URL } from '../api';
 import { UserContext } from '../context/UserContext'; 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import SectionTitle from '../components/TituloSeccion';
 import BottomNav from '../components/navbar';
 import WaveBackground from '../components/WaveBackground';
@@ -30,6 +31,7 @@ export default function Calendario({ navigation }) {
   const [diaSeleccionado, setDiaSeleccionado] = useState(null);
   const [actividadesFormateadas, setActividadesFormateadas] = useState({});
   const [todosLosDirigentes, setTodosLosDirigentes] = useState([]);
+  const [token, setToken] = useState(null);
   
   // Estados para Modal de Detalles y Asistencia
   const [modalDetalleVisible, setModalDetalleVisible] = useState(false);
@@ -105,12 +107,29 @@ const fetchEventos = async () => {
   } catch (error) { console.error('Error:', error); }
 };
 
-  const cargarAsistentes = async (idActividad) => {
+  const cargarAsistentes = async (actividad) => {
     try {
-      const response = await fetch(`${API_URL}/actividades/${idActividad}/asistentes`);
+      let url = `${API_URL}/actividades/${actividad.id_actividad}/asistentes`;
+      if (actividad.esAsamblea) {
+         url = `${API_URL}/asistencia/fecha/${actividad.fecha.substring(0, 10)}`;
+      }
+      
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       const data = await response.json();
       
-      const listaAsistentes = Array.isArray(data) ? data : [];
+      let listaAsistentes = Array.isArray(data) ? data : [];
+
+      if (actividad.esAsamblea) {
+        listaAsistentes = listaAsistentes
+          .filter(a => a.estado === 'Presente' || a.estado === 'Asistirá' || a.estado === 'No asistirá')
+          .map(a => ({
+            ...a,
+            estado: (a.estado === 'Presente' || a.estado === 'Asistirá') ? 'si' : 'no'
+          }));
+      }
+
       setAsistentes(listaAsistentes);
       
       const miRegistro = listaAsistentes.find(d => d.id_dirigente === user.dirigente.id_dirigente);
@@ -124,6 +143,7 @@ const fetchEventos = async () => {
   useEffect(() => {
     fetchEventos();
     cargarTodosLosDirigentes();
+    AsyncStorage.getItem('token').then(setToken);
   }, []);
 
   const estaBloqueadaConfirmacion = (fechaActividadStr) => {
@@ -144,20 +164,39 @@ const fetchEventos = async () => {
     }
 
     try {
-      const response = await fetch(`${API_URL}/actividades/${actividadSeleccionada.id_actividad}/confirmar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+      let url = `${API_URL}/actividades/${actividadSeleccionada.id_actividad}/confirmar`;
+      let bodyData = { 
+        id_dirigente: user.dirigente.id_dirigente,
+        estado 
+      };
+      let method = 'POST';
+
+      if (actividadSeleccionada.esAsamblea) {
+        url = `${API_URL}/asistencia`;
+        method = 'PUT';
+        bodyData = {
           id_dirigente: user.dirigente.id_dirigente,
-          estado 
-        })
+          fecha: actividadSeleccionada.fecha.substring(0, 10),
+          estado: estado === 'si' ? 'Asistirá' : 'No asistirá'
+        };
+      }
+
+      const response = await fetch(url, {
+        method: method,
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(bodyData)
       });
       
       if (response.ok) {
-        cargarAsistentes(actividadSeleccionada.id_actividad);
+        cargarAsistentes(actividadSeleccionada);
+      } else {
+        Alert.alert('Error', 'Hubo un problema al guardar tu asistencia.');
       }
     } catch (error) {
-      Alert.alert('Error', 'No se pudo guardar tu respuesta.');
+      Alert.alert('Error', 'No se pudo conectar con el servidor.');
     }
   };
 
@@ -262,7 +301,7 @@ const fetchEventos = async () => {
             <Text style={styles.noPreviewText}>No hay actividades.</Text>
           ) : (
             actividadesFormateadas[diaSeleccionado].map((item) => (
-              <TouchableOpacity key={item.key} style={[styles.previewCard, { borderLeftColor: item.color }]} onPress={() => { setActividadSeleccionada(item); cargarAsistentes(item.id_actividad); setModalDetalleVisible(true); }}>
+              <TouchableOpacity key={item.key} style={[styles.previewCard, { borderLeftColor: item.color }]} onPress={() => { setActividadSeleccionada(item); cargarAsistentes(item); setModalDetalleVisible(true); }}>
                 <Text style={styles.previewCardTitle}>{item.titulo}</Text>
                 <Text style={styles.previewCardSub} numberOfLines={1}>{item.tipo}</Text>
               </TouchableOpacity>
@@ -298,14 +337,8 @@ const fetchEventos = async () => {
 
                 
 
-                {actividadSeleccionada.esAsamblea ? (
+                {actividadSeleccionada.esAsamblea && (
                   <View style={styles.asambleaCardContainer}>
-                    <View style={styles.asambleaAvisoBox}>
-                      <Ionicons name="information-circle-outline" size={18} color="#D97706" />
-                      <Text style={styles.asambleaAvisoText}>
-                        En caso de inasistencia, presentar excusa con un tiempo mínimo de 3 días en el grupo.
-                      </Text>
-                    </View>
                   {(rol === 'Coordinación' || rol === 'Nombrado') && (
                     <BotonCalificarAsamblea 
                       asamblea={actividadSeleccionada} 
@@ -315,87 +348,113 @@ const fetchEventos = async () => {
                     />
                   )}
                   </View>
-                ) : (
-                  <View style={{ marginTop: 15 }}>
-                    {estaBloqueadaConfirmacion(actividadSeleccionada.fecha) && (
-                      <Text style={{ color: '#E50F0F', fontSize: 12, marginTop: 10, textAlign: 'center', fontWeight: 'bold' }}>
-                        Ya no puedes cancelar tu asistencia (quedan 2 días o menos).
+                )}
+
+                <View style={{ marginTop: 15 }}>
+                  {estaBloqueadaConfirmacion(actividadSeleccionada.fecha) && (
+                    <Text style={{ color: '#E50F0F', fontSize: 12, marginTop: 10, textAlign: 'center', fontWeight: 'bold' }}>
+                      Ya no puedes cancelar tu asistencia (quedan 2 días o menos).
+                    </Text>
+                  )}
+                  <Text style={styles.detailLabel}>¿Asistirás a esta actividad?</Text>
+                  <View style={styles.asistenciaBotonesRow}>
+                    <TouchableOpacity 
+                      style={[
+                        styles.btnAsistencia, 
+                        miEstadoAsistencia === 'si' && styles.btnAsistenciaSiActivo
+                      ]} 
+                      onPress={() => registrarAsistencia('si')}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons 
+                        name={miEstadoAsistencia === 'si' ? "checkmark-circle" : "checkmark-circle-outline"} 
+                        size={18} 
+                        color={miEstadoAsistencia === 'si' ? "#FFF" : "#475569"} 
+                      />
+                      <Text style={[styles.btnAsistenciaText, miEstadoAsistencia === 'si' && styles.textActivo]}>
+                        Sí Asistiré
                       </Text>
-                    )}
-                    <Text style={styles.detailLabel}>¿Asistirás a esta actividad?</Text>
-                    <View style={styles.asistenciaBotonesRow}>
-                      <TouchableOpacity 
-                        style={[
-                          styles.btnAsistencia, 
-                          miEstadoAsistencia === 'si' && styles.btnAsistenciaSiActivo
-                        ]} 
-                        onPress={() => registrarAsistencia('si')}
-                        activeOpacity={0.8}
-                      >
-                        <Ionicons 
-                          name={miEstadoAsistencia === 'si' ? "checkmark-circle" : "checkmark-circle-outline"} 
-                          size={18} 
-                          color={miEstadoAsistencia === 'si' ? "#FFF" : "#475569"} 
-                        />
-                        <Text style={[styles.btnAsistenciaText, miEstadoAsistencia === 'si' && styles.textActivo]}>
-                          Sí Asistiré
-                        </Text>
-                      </TouchableOpacity>
+                    </TouchableOpacity>
 
-                      <TouchableOpacity 
-                        style={[
-                          styles.btnAsistencia, 
-                          miEstadoAsistencia === 'no' && styles.btnAsistenciaNoActivo
-                        ]} 
-                        onPress={() => registrarAsistencia('no')}
-                        activeOpacity={0.8}
-                      >
-                        <Ionicons 
-                          name={miEstadoAsistencia === 'no' ? "close-circle" : "close-circle-outline"} 
-                          size={18} 
-                          color={miEstadoAsistencia === 'no' ? "#FFF" : "#475569"} 
-                        />
-                        <Text style={[styles.btnAsistenciaText, miEstadoAsistencia === 'no' && styles.textActivo]}>
-                          No Asistiré
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
+                    <TouchableOpacity 
+                      style={[
+                        styles.btnAsistencia, 
+                        miEstadoAsistencia === 'no' && styles.btnAsistenciaNoActivo
+                      ]} 
+                      onPress={() => registrarAsistencia('no')}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons 
+                        name={miEstadoAsistencia === 'no' ? "close-circle" : "close-circle-outline"} 
+                        size={18} 
+                        color={miEstadoAsistencia === 'no' ? "#FFF" : "#475569"} 
+                      />
+                      <Text style={[styles.btnAsistenciaText, miEstadoAsistencia === 'no' && styles.textActivo]}>
+                        No Asistiré
+                      </Text>
+                    </TouchableOpacity>
                   </View>
-                )}
+                </View>
 
-                {(!actividadSeleccionada.esAsamblea && (rol === 'Coordinación' || comite === actividadSeleccionada.tipo)) && (
-                  <View style={{ marginTop: 25, borderTopWidth: 1, borderColor: '#eee', paddingTop: 10 }}>
-                    <Text style={styles.detailLabel}>Confirmaron Asistencia ({losQueVan.length}):</Text>
-                    {losQueVan.map(a => (
-                      <View key={a.id_dirigente} style={styles.dirigenteItemRow}>
-                        <View style={styles.avatarContainer}>
-                          {a.foto ? <Image source={{ uri: a.foto }} style={styles.avatarImage} /> : <Ionicons name="person" size={14} color="#2e7d32" />}
-                        </View>
-                        <Text style={[styles.detailValueInline, { color: '#2e7d32' }]}>{a.nombre} {a.apellido}</Text>
-                      </View>
-                    ))}
+                {(() => {
+                  let mostrarAsistentes = false;
+                  if (actividadSeleccionada.esAsamblea) {
+                    const idUser = user.dirigente.id_dirigente;
+                    let esEncargado = idUser === actividadSeleccionada.id_encargado || 
+                                      idUser === actividadSeleccionada.id_encargado_pitar || 
+                                      idUser === actividadSeleccionada.id_encargado_tiempo;
+                    if (actividadSeleccionada.otros_encargados) {
+                      try {
+                        const otros = typeof actividadSeleccionada.otros_encargados === 'string' ? JSON.parse(actividadSeleccionada.otros_encargados) : actividadSeleccionada.otros_encargados;
+                        if (Array.isArray(otros) && otros.includes(idUser)) {
+                          esEncargado = true;
+                        }
+                      } catch (e) {
+                        // ignore
+                      }
+                    }
+                    mostrarAsistentes = rol === 'Coordinación' || esEncargado;
+                  } else {
+                    mostrarAsistentes = rol === 'Coordinación' || comite === actividadSeleccionada.tipo;
+                  }
 
-                    <Text style={[styles.detailLabel, { marginTop: 10 }]}>No Asistirán ({losQueNoVan.length}):</Text>
-                    {losQueNoVan.map(a => (
-                      <View key={a.id_dirigente} style={styles.dirigenteItemRow}>
-                        <View style={styles.avatarContainer}>
-                          {a.foto ? <Image source={{ uri: a.foto }} style={styles.avatarImage} /> : <Ionicons name="person" size={14} color="#d32f2f" />}
-                        </View>
-                        <Text style={[styles.detailValueInline, { color: '#d32f2f' }]}>{a.nombre} {a.apellido}</Text>
-                      </View>
-                    ))}
+                  if (mostrarAsistentes) {
+                    return (
+                      <View style={{ marginTop: 25, borderTopWidth: 1, borderColor: '#eee', paddingTop: 10 }}>
+                        <Text style={styles.detailLabel}>Confirmaron Asistencia ({losQueVan.length}):</Text>
+                        {losQueVan.map(a => (
+                          <View key={a.id_dirigente} style={styles.dirigenteItemRow}>
+                            <View style={styles.avatarContainer}>
+                              {a.foto ? <Image source={{ uri: a.foto }} style={styles.avatarImage} /> : <Ionicons name="person" size={14} color="#2e7d32" />}
+                            </View>
+                            <Text style={[styles.detailValueInline, { color: '#2e7d32' }]}>{a.nombre} {a.apellido}</Text>
+                          </View>
+                        ))}
 
-                    <Text style={[styles.detailLabel, { marginTop: 10 }]}>Sin Confirmar ({sinConfirmar.length}):</Text>
-                    {sinConfirmar.map(d => (
-                      <View key={d.id_dirigente} style={styles.dirigenteItemRow}>
-                        <View style={styles.avatarContainer}>
-                          {d.foto ? <Image source={{ uri: d.foto }} style={styles.avatarImage} /> : <Ionicons name="person" size={14} color="#888" />}
-                        </View>
-                        <Text style={[styles.detailValueInline, { color: '#888' }]}>{d.nombre} {d.apellido}</Text>
+                        <Text style={[styles.detailLabel, { marginTop: 10 }]}>No Asistirán ({losQueNoVan.length}):</Text>
+                        {losQueNoVan.map(a => (
+                          <View key={a.id_dirigente} style={styles.dirigenteItemRow}>
+                            <View style={styles.avatarContainer}>
+                              {a.foto ? <Image source={{ uri: a.foto }} style={styles.avatarImage} /> : <Ionicons name="person" size={14} color="#d32f2f" />}
+                            </View>
+                            <Text style={[styles.detailValueInline, { color: '#d32f2f' }]}>{a.nombre} {a.apellido}</Text>
+                          </View>
+                        ))}
+
+                        <Text style={[styles.detailLabel, { marginTop: 10 }]}>Sin Confirmar ({sinConfirmar.length}):</Text>
+                        {sinConfirmar.map(d => (
+                          <View key={d.id_dirigente} style={styles.dirigenteItemRow}>
+                            <View style={styles.avatarContainer}>
+                              {d.foto ? <Image source={{ uri: d.foto }} style={styles.avatarImage} /> : <Ionicons name="person" size={14} color="#888" />}
+                            </View>
+                            <Text style={[styles.detailValueInline, { color: '#888' }]}>{d.nombre} {d.apellido}</Text>
+                          </View>
+                        ))}
                       </View>
-                    ))}
-                  </View>
-                )}
+                    );
+                  }
+                  return null;
+                })()}
               </ScrollView>
             )}
 
@@ -489,29 +548,6 @@ const styles = StyleSheet.create({
   detailValueInline: { fontSize: 14, fontWeight: '500' },
   asambleaCardContainer: {
     marginTop: 15,
-    backgroundColor: '#FFF8F0',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#FFE0B2',
-  },
-  asambleaAvisoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#FEF3C7',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 12,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-  },
-  asambleaAvisoText: {
-    flex: 1,
-    fontSize: 12,
-    color: '#92400E',
-    lineHeight: 16,
-    fontWeight: '500',
   },
   asistenciaBotonesRow: {
     flexDirection: 'row',

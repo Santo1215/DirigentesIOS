@@ -1,4 +1,4 @@
-import { useContext, useState } from 'react';
+import { useContext, useState , useEffect} from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Alert, TouchableWithoutFeedback } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import BottomNav from '../components/navbar';
@@ -8,6 +8,7 @@ import WaveBackground from '../components/WaveBackground';
 import { API_URL } from '../api';
 import { CommonActions } from '@react-navigation/native';
 import { Linking } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 export default function Menu({ navigation }) {
@@ -19,6 +20,11 @@ export default function Menu({ navigation }) {
   const [contrasenaConfirmar, setContrasenaConfirmar] = useState('');
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [token, setToken] = useState(null);
+
+  useEffect(() => {
+    AsyncStorage.getItem('token').then(setToken);
+  }, []);
 
   const actualizarContrasena = async () => {
     setErrorMsg('');
@@ -42,7 +48,7 @@ export default function Menu({ navigation }) {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${user.token}`,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             contrasenaActual,
