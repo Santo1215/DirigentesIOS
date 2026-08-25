@@ -11,6 +11,8 @@ import {
   Animated,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '../api';
@@ -180,7 +182,10 @@ export default function ModalCalificacionAsamblea({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.overlay}
+      >
         <View style={styles.modal}>
 
           {/* HEADER */}
@@ -196,7 +201,7 @@ export default function ModalCalificacionAsamblea({
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 10 }}>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="always" contentContainerStyle={{ paddingBottom: 10 }}>
 
             {/* TÍTULO DE LA ASAMBLEA */}
             <View style={styles.tituloBox}>
@@ -398,7 +403,7 @@ export default function ModalCalificacionAsamblea({
           )}
 
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

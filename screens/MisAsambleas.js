@@ -56,7 +56,7 @@ export default function MisAsambleas({ navigation }) {
       const response = await fetch(`${API_URL}/dirigentes`);
       if (response.ok) {
         const data = await response.json();
-        setDirigentes(data.filter(d => (d.id_dirigente || d.id) !== idUsuarioActual));
+        setDirigentes(data);
       }
     } catch (error) { console.error('Error cargando dirigentes:', error); }
   };
@@ -331,17 +331,15 @@ export default function MisAsambleas({ navigation }) {
                   <View style={styles.cardFooter}>
                     <Text style={styles.cardDate}>📅 {asamblea.fecha}</Text>
                   </View>
-                  {/* Validar rol para mostrar el botón */}
-                    {esCoordinacionONombrado && (
-                      <View style={{ marginTop: 10 }}>
-                        <BotonCalificarAsamblea 
-                          asamblea={asamblea} 
-                          idDirigente={idUsuarioActual}
-                          yaCalificado={asamblea.calificaciones?.some(c => c.id_dirigente === idUsuarioActual)}
-                          onCalificado={() => cargarAsambleas()} 
-                        />
-                      </View>
-                    )}
+                  {/* Botón de calificar visible para todos los usuarios */}
+                  <View style={{ marginTop: 10 }}>
+                    <BotonCalificarAsamblea 
+                      asamblea={asamblea} 
+                      idDirigente={idUsuarioActual}
+                      yaCalificado={asamblea.calificaciones?.some(c => c.id_dirigente === idUsuarioActual)}
+                      onCalificado={() => cargarAsambleas()} 
+                    />
+                  </View>
                 </View>
               );
             })}

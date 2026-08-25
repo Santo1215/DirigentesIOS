@@ -105,9 +105,9 @@ export default function Menu({ navigation }) {
         <SectionTitle title="Menú" />
 
         <View style={styles.grid}>
-          <MenuItem icon="calendar-outline" label="Calendario" onPress={() => navigation.navigate('Calendario')} />
+           <MenuItem icon="calendar-outline" label="Calendario" onPress={() => navigation.navigate('Calendario')} />
            {(rol === 'Coordinación' || rol === 'Nombrado') && (
-          <MenuItem icon="ribbon-outline" label="Calificación Asambleas"  onPress={() => navigation.navigate('CalificacionesAsambleas')}/>
+           <MenuItem icon="ribbon-outline" label="Calificación Asambleas"  onPress={() => navigation.navigate('CalificacionesAsambleas')}/>
            )}
            <MenuItem icon="bonfire-outline" label="Mi Asamblea"  onPress={() => navigation.navigate('MisAsambleas')}/>
           <MenuItem icon="dice-outline" label="Material"  onPress={() => navigation.navigate('Material')}/>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, Modal, 
-  TextInput, Alert, ScrollView, Image 
+  TextInput, Alert, ScrollView, Image, Switch 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
@@ -12,7 +12,7 @@ import SectionTitle from '../components/TituloSeccion';
 import BottomNav from '../components/navbar';
 import WaveBackground from '../components/WaveBackground';
 import FechaPicker from '../components/FechaPicker';
-import BotonCalificarAsamblea from '../components/BotonCalificarAsamblea';
+import ModalCalificacionAsamblea from '../components/ModalCalificacionAsamblea';
 
 LocaleConfig.locales['es'] = {
   monthNames: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
@@ -45,9 +45,23 @@ export default function Calendario({ navigation }) {
   const [nuevaActividad, setNuevaActividad] = useState({
     titulo: '', descripcion: '', fechaObj: new Date(), 
     responsable: user?.dirigente ? `${user.dirigente.nombre} ${user.dirigente.apellido}` : '', 
-    tipo: user?.dirigente?.comite || 'Otro'     
+    tipo: user?.dirigente?.comite || 'Otro',
+    verificarAsistencia: true
   });
-  const opcionesTipo = ['Redes', 'Integración', 'Religioso', 'Reunión', 'Otro'];
+
+  // Opciones de tipo permitidas según rol y comité
+  const obtenerTiposPermitidos = () => {
+    const todos = ['Integración', 'Redes', 'Religioso', 'Reunión', 'Otro'];
+    if (rol === 'Coordinación' || comite === 'Coordinación') return todos;
+    if (comite === 'Integración') return ['Integración', 'Otro'];
+    if (comite === 'Redes') return ['Redes', 'Otro'];
+    if (comite === 'Religioso') return ['Religioso', 'Otro'];
+    return ['Otro'];
+  };
+
+  // Estados para el modal de calificar asamblea (a nivel de pantalla, no anidado)
+  const [asambleaACalificar, setAsambleaACalificar] = useState(null);
+  const [actualizandoVerificacion, setActualizandoVerificacion] = useState(false);
 
   // Cargas de la Base de Datos
   const cargarTodosLosDirigentes = async () => {
@@ -202,10 +216,12 @@ const fetchEventos = async () => {
 
   const abrirModalCrear = () => {
     const fechaBase = diaSeleccionado ? new Date(`${diaSeleccionado}T12:00:00`) : new Date();
+    const tipos = obtenerTiposPermitidos();
     setNuevaActividad({
       titulo: '', descripcion: '', fechaObj: fechaBase,
       responsable: user?.dirigente ? `${user.dirigente.nombre} ${user.dirigente.apellido}` : '',
-      tipo: user?.dirigente?.comite || 'Otro'
+      tipo: tipos[0],
+      verificarAsistencia: true
     });
     setModalActividadVisible(true);
   };
@@ -229,16 +245,39 @@ const fetchEventos = async () => {
           descripcion: nuevaActividad.descripcion,
           fecha: `${year}-${month}-${day}`,
           responsable: nuevaActividad.responsable,
-          tipo: nuevaActividad.tipo
+          tipo: nuevaActividad.tipo,
+          verificar_asistencia: nuevaActividad.verificarAsistencia !== false
         })
       });
 
       if (response.ok) {
         Alert.alert('Éxito', 'Actividad guardada correctamente');
         setModalActividadVisible(false);
-        fetchActividades(); 
+        fetchEventos();
       }
     } catch (error) { console.error('Error guardando actividad:', error); }
+  };
+
+  const toggleVerificarAsistencia = async (nuevoValor) => {
+    if (!actividadSeleccionada) return;
+    try {
+      setActualizandoVerificacion(true);
+      const response = await fetch(`${API_URL}/actividades/${actividadSeleccionada.id_actividad}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ verificar_asistencia: nuevoValor })
+      });
+      if (response.ok) {
+        setActividadSeleccionada({ ...actividadSeleccionada, verificar_asistencia: nuevoValor });
+        fetchEventos();
+      } else {
+        Alert.alert('Error', 'No se pudo actualizar la verificación de asistencia.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo conectar con el servidor.');
+    } finally {
+      setActualizandoVerificacion(false);
+    }
   };
 
   const losQueVan = asistentes.filter(a => a.estado === 'si');
@@ -246,6 +285,9 @@ const fetchEventos = async () => {
   const sinConfirmar = todosLosDirigentes.filter(
     d => !asistentes.some(a => a.id_dirigente === d.id_dirigente)
   );
+
+  const verificarAsistencia = actividadSeleccionada ? actividadSeleccionada.verificar_asistencia !== false : true;
+  const puedeGestionarActividad = rol === 'Coordinación' || comite === actividadSeleccionada?.tipo;
 
   return (
     <View style={styles.container}>
@@ -283,12 +325,10 @@ const fetchEventos = async () => {
         </View>
       </View>
 
-      {/* BOTÓN FLOTANTE CREAR ACTIVIDAD */}
-      {(comite === 'Redes' || comite === 'Integración' || comite === 'Religioso' || rol === 'Coordinación') && (
-        <TouchableOpacity style={styles.fab} onPress={abrirModalCrear}> 
-          <Ionicons name="add" size={30} color="#fff" />
-        </TouchableOpacity>
-      )}
+      {/* BOTÓN FLOTANTE CREAR ACTIVIDAD (visible para todos) */}
+      <TouchableOpacity style={styles.fab} onPress={abrirModalCrear}> 
+        <Ionicons name="add" size={30} color="#fff" />
+      </TouchableOpacity>
 
       {/* VISTA PREVIA DEL DÍA */}
       {diaSeleccionado && (
@@ -339,64 +379,93 @@ const fetchEventos = async () => {
 
                 {actividadSeleccionada.esAsamblea && (
                   <View style={styles.asambleaCardContainer}>
-                  {(rol === 'Coordinación' || rol === 'Nombrado') && (
-                    <BotonCalificarAsamblea 
-                      asamblea={actividadSeleccionada} 
-                      idDirigente={user.dirigente.id_dirigente} 
-                      yaCalificado={actividadSeleccionada.calificaciones?.some(c => c.id_dirigente === user.dirigente.id_dirigente)}
-                      onCalificado={() => fetchEventos()} 
-                    />
-                  )}
+                  {(() => {
+                    const yaCalifico = actividadSeleccionada.calificaciones?.some(c => c.id_dirigente === user.dirigente.id_dirigente);
+                    return (
+                      <TouchableOpacity
+                        style={[
+                          { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+                          yaCalifico ? { backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#D1FAE5' } : { backgroundColor: '#2660ffff' }
+                        ]}
+                        onPress={() => setAsambleaACalificar(actividadSeleccionada)}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name={yaCalifico ? 'eye' : 'star'} size={16} color={yaCalifico ? '#10B981' : '#FFF'} style={{ marginRight: 6 }} />
+                        <Text style={{ color: yaCalifico ? '#10B981' : '#FFF', fontSize: 14, fontWeight: '700' }}>
+                          {yaCalifico ? 'Ver calificación' : 'Calificar'}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })()}
                   </View>
                 )}
 
                 <View style={{ marginTop: 15 }}>
-                  {estaBloqueadaConfirmacion(actividadSeleccionada.fecha) && (
-                    <Text style={{ color: '#E50F0F', fontSize: 12, marginTop: 10, textAlign: 'center', fontWeight: 'bold' }}>
-                      Ya no puedes cancelar tu asistencia (quedan 2 días o menos).
-                    </Text>
+                  {puedeGestionarActividad && (
+                    <View style={styles.verificarRow}>
+                      <Text style={styles.verificarLabel}>Verificar asistencia a esta actividad</Text>
+                      <Switch
+                        value={verificarAsistencia}
+                        onValueChange={(v) => toggleVerificarAsistencia(v)}
+                        disabled={actualizandoVerificacion}
+                        trackColor={{ false: '#CBD5E1', true: '#FFA726' }}
+                        thumbColor={verificarAsistencia ? '#FFF' : '#FFF'}
+                        ios_backgroundColor="#CBD5E1"
+                      />
+                    </View>
                   )}
-                  <Text style={styles.detailLabel}>¿Asistirás a esta actividad?</Text>
-                  <View style={styles.asistenciaBotonesRow}>
-                    <TouchableOpacity 
-                      style={[
-                        styles.btnAsistencia, 
-                        miEstadoAsistencia === 'si' && styles.btnAsistenciaSiActivo
-                      ]} 
-                      onPress={() => registrarAsistencia('si')}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons 
-                        name={miEstadoAsistencia === 'si' ? "checkmark-circle" : "checkmark-circle-outline"} 
-                        size={18} 
-                        color={miEstadoAsistencia === 'si' ? "#FFF" : "#475569"} 
-                      />
-                      <Text style={[styles.btnAsistenciaText, miEstadoAsistencia === 'si' && styles.textActivo]}>
-                        Sí Asistiré
-                      </Text>
-                    </TouchableOpacity>
 
-                    <TouchableOpacity 
-                      style={[
-                        styles.btnAsistencia, 
-                        miEstadoAsistencia === 'no' && styles.btnAsistenciaNoActivo
-                      ]} 
-                      onPress={() => registrarAsistencia('no')}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons 
-                        name={miEstadoAsistencia === 'no' ? "close-circle" : "close-circle-outline"} 
-                        size={18} 
-                        color={miEstadoAsistencia === 'no' ? "#FFF" : "#475569"} 
-                      />
-                      <Text style={[styles.btnAsistenciaText, miEstadoAsistencia === 'no' && styles.textActivo]}>
-                        No Asistiré
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                  {verificarAsistencia && (
+                    <>
+                      {estaBloqueadaConfirmacion(actividadSeleccionada.fecha) && (
+                        <Text style={{ color: '#E50F0F', fontSize: 12, marginTop: 10, textAlign: 'center', fontWeight: 'bold' }}>
+                          Ya no puedes cancelar tu asistencia (quedan 2 días o menos).
+                        </Text>
+                      )}
+                      <Text style={styles.detailLabel}>¿Asistirás a esta actividad?</Text>
+                      <View style={styles.asistenciaBotonesRow}>
+                        <TouchableOpacity 
+                          style={[
+                            styles.btnAsistencia, 
+                            miEstadoAsistencia === 'si' && styles.btnAsistenciaSiActivo
+                          ]} 
+                          onPress={() => registrarAsistencia('si')}
+                          activeOpacity={0.8}
+                        >
+                          <Ionicons 
+                            name={miEstadoAsistencia === 'si' ? "checkmark-circle" : "checkmark-circle-outline"} 
+                            size={18} 
+                            color={miEstadoAsistencia === 'si' ? "#FFF" : "#475569"} 
+                          />
+                          <Text style={[styles.btnAsistenciaText, miEstadoAsistencia === 'si' && styles.textActivo]}>
+                            Sí Asistiré
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity 
+                          style={[
+                            styles.btnAsistencia, 
+                            miEstadoAsistencia === 'no' && styles.btnAsistenciaNoActivo
+                          ]} 
+                          onPress={() => registrarAsistencia('no')}
+                          activeOpacity={0.8}
+                        >
+                          <Ionicons 
+                            name={miEstadoAsistencia === 'no' ? "close-circle" : "close-circle-outline"} 
+                            size={18} 
+                            color={miEstadoAsistencia === 'no' ? "#FFF" : "#475569"} 
+                          />
+                          <Text style={[styles.btnAsistenciaText, miEstadoAsistencia === 'no' && styles.textActivo]}>
+                            No Asistiré
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  )}
                 </View>
 
                 {(() => {
+                  if (!verificarAsistencia) return null;
                   let mostrarAsistentes = false;
                   if (actividadSeleccionada.esAsamblea) {
                     const idUser = user.dirigente.id_dirigente;
@@ -465,11 +534,26 @@ const fetchEventos = async () => {
         </View>
       </Modal>
 
+      {/* MODAL CALIFICAR ASAMBLEA (a nivel de pantalla, fuera del modal de detalles) */}
+      <ModalCalificacionAsamblea
+        visible={!!asambleaACalificar}
+        asamblea={asambleaACalificar}
+        idDirigente={user.dirigente.id_dirigente}
+        onClose={() => setAsambleaACalificar(null)}
+        onCalificado={() => {
+          fetchEventos();
+          if (actividadSeleccionada && asambleaACalificar && actividadSeleccionada.id_asamblea === asambleaACalificar.id_asamblea) {
+            cargarAsistentes(actividadSeleccionada);
+          }
+        }}
+      />
+
       {/* MODAL CREAR ACTIVIDAD */}
       <Modal visible={modalActividadVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: '#fff', width: '90%' }]}>
-            <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' }}>Nueva Actividad</Text>
+          <View style={[styles.modalContent, { backgroundColor: '#fff', width: '90%', maxHeight: '90%' }]}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' }}>Nueva Actividad</Text>
             
             <TextInput style={styles.input} placeholder="Título" value={nuevaActividad.titulo} onChangeText={(text) => setNuevaActividad({ ...nuevaActividad, titulo: text })} />
             
@@ -481,11 +565,22 @@ const fetchEventos = async () => {
 
             <TextInput style={[styles.input, { backgroundColor: '#e9ecef' }]} placeholder="Responsable" value={nuevaActividad.responsable} editable={false} />
             
-            <TouchableOpacity style={[styles.input, { justifyContent: 'center', backgroundColor: rol === 'Coordinación' ? '#fff' : '#e9ecef' }]} onPress={() => { if (rol === 'Coordinación') setModalTipoVisible(true); }} disabled={rol !== 'Coordinación'}>
+            <TouchableOpacity style={[styles.input, { justifyContent: 'center', backgroundColor: '#fff' }]} onPress={() => setModalTipoVisible(true)}>
               <Text style={{ color: nuevaActividad.tipo ? '#333' : '#888' }}>{nuevaActividad.tipo || 'Seleccione Tipo'}</Text>
             </TouchableOpacity>
             
             <TextInput style={[styles.input, { height: 80, textAlignVertical: 'top' }]} placeholder="Descripción" multiline value={nuevaActividad.descripcion} onChangeText={(text) => setNuevaActividad({ ...nuevaActividad, descripcion: text })} />
+            
+            <View style={styles.verificarRow}>
+              <Text style={styles.verificarLabel}>¿Verificar asistencia a la actividad?</Text>
+              <Switch
+                value={nuevaActividad.verificarAsistencia !== false}
+                onValueChange={(v) => setNuevaActividad({ ...nuevaActividad, verificarAsistencia: v })}
+                trackColor={{ false: '#CBD5E1', true: '#FFA726' }}
+                thumbColor="#FFF"
+                ios_backgroundColor="#CBD5E1"
+              />
+            </View>
             
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
               <TouchableOpacity style={[styles.button, { backgroundColor: '#ccc' }]} onPress={() => setModalActividadVisible(false)}>
@@ -495,6 +590,7 @@ const fetchEventos = async () => {
                 <Text style={{ color: '#fff', fontWeight: 'bold' }}>Guardar</Text>
               </TouchableOpacity>
             </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -503,7 +599,7 @@ const fetchEventos = async () => {
       <Modal visible={modalTipoVisible} transparent animationType="fade">
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalTipoVisible(false)}>
           <View style={[styles.modalContent, { width: '70%', padding: 10 }]}>
-            {opcionesTipo.map((opcion, index) => (
+            {obtenerTiposPermitidos().map((opcion, index) => (
               <TouchableOpacity key={index} style={{ paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#eee', alignItems: 'center' }} onPress={() => { setNuevaActividad({ ...nuevaActividad, tipo: opcion }); setModalTipoVisible(false); }}>
                 <Text style={{ fontSize: 16, color: '#333' }}>{opcion}</Text>
               </TouchableOpacity>
@@ -548,6 +644,25 @@ const styles = StyleSheet.create({
   detailValueInline: { fontSize: 14, fontWeight: '500' },
   asambleaCardContainer: {
     marginTop: 15,
+  },
+  verificarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 15,
+  },
+  verificarLabel: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+    marginRight: 10,
   },
   asistenciaBotonesRow: {
     flexDirection: 'row',

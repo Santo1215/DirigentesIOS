@@ -16,21 +16,28 @@ import { UserContext } from '../context/UserContext';
 export default function ModalProximamente({ visible, onClose }) {
   const { user } = useContext(UserContext);
   const { rol } = user.dirigente;
+  const [esSistemas, setEsSistemas] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      setEsSistemas(Math.random() < 0.5);
+    }
+  }, [visible]);
 
   return (
     <Modal visible={visible} transparent animationType="slide">
       <View style={styles.overlay}>
         <View style={styles.modal}>
           <Text style={styles.title}>
-            Próximamente
+            {esSistemas ? 'Sigo trabajando' : 'Próximamente'}
           </Text>
           <Image
-            source={require('../assets/ingeniero.jpg')}
+            source={esSistemas ? require('../assets/sistemas.jpg') : require('../assets/ingeniero.jpg')}
             style={styles.trabajando}
             resizeMode="cover"
           />
           <Text style={styles.texto}>
-            ¡Trabajando duro para algo increíble!
+            {esSistemas ? '¡Dormiré cuando funcione!' : '¡Trabajando duro para algo increíble!'}
           </Text>
           <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
             <Text style={{ color: '#fff', fontWeight: 'bold' }}>Entendido</Text>
