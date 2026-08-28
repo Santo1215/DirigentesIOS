@@ -1,18 +1,19 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { 
-  View, Text, StyleSheet, TouchableOpacity, Modal, 
-  TextInput, Alert, ScrollView, Image, Switch 
+import {
+  View, Text, StyleSheet, TouchableOpacity, Modal,
+  TextInput, Alert, ScrollView, Image, Switch, Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { API_URL } from '../api';
-import { UserContext } from '../context/UserContext'; 
+import { UserContext } from '../context/UserContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import SectionTitle from '../components/TituloSeccion';
 import BottomNav from '../components/navbar';
-import WaveBackground from '../components/WaveBackground';
 import FechaPicker from '../components/FechaPicker';
 import ModalCalificacionAsamblea from '../components/ModalCalificacionAsamblea';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const CELL_SIZE = Math.floor((SCREEN_WIDTH - 40) / 7);
 
 LocaleConfig.locales['es'] = {
   monthNames: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
@@ -27,29 +28,28 @@ export default function Calendario({ navigation }) {
   const { user } = useContext(UserContext);
   const { rol, comite } = user.dirigente;
 
-  // Estados Generales
   const [diaSeleccionado, setDiaSeleccionado] = useState(null);
   const [actividadesFormateadas, setActividadesFormateadas] = useState({});
   const [todosLosDirigentes, setTodosLosDirigentes] = useState([]);
   const [token, setToken] = useState(null);
-  
-  // Estados para Modal de Detalles y Asistencia
+
   const [modalDetalleVisible, setModalDetalleVisible] = useState(false);
   const [actividadSeleccionada, setActividadSeleccionada] = useState(null);
   const [asistentes, setAsistentes] = useState([]);
-  const [miEstadoAsistencia, setMiEstadoAsistencia] = useState(null); 
+  const [miEstadoAsistencia, setMiEstadoAsistencia] = useState(null);
 
-  // Estados para Crear Actividad
   const [modalActividadVisible, setModalActividadVisible] = useState(false);
   const [modalTipoVisible, setModalTipoVisible] = useState(false);
   const [nuevaActividad, setNuevaActividad] = useState({
-    titulo: '', descripcion: '', fechaObj: new Date(), 
-    responsable: user?.dirigente ? `${user.dirigente.nombre} ${user.dirigente.apellido}` : '', 
+    titulo: '', descripcion: '', fechaObj: new Date(),
+    responsable: user?.dirigente ? `${user.dirigente.nombre} ${user.dirigente.apellido}` : '',
     tipo: user?.dirigente?.comite || 'Otro',
     verificarAsistencia: true
   });
 
-  // Opciones de tipo permitidas según rol y comité
+  const [asambleaACalificar, setAsambleaACalificar] = useState(null);
+  const [actualizandoVerificacion, setActualizandoVerificacion] = useState(false);
+
   const obtenerTiposPermitidos = () => {
     const todos = ['Integración', 'Redes', 'Religioso', 'Reunión', 'Otro'];
     if (rol === 'Coordinación' || comite === 'Coordinación') return todos;
@@ -59,11 +59,6 @@ export default function Calendario({ navigation }) {
     return ['Otro'];
   };
 
-  // Estados para el modal de calificar asamblea (a nivel de pantalla, no anidado)
-  const [asambleaACalificar, setAsambleaACalificar] = useState(null);
-  const [actualizandoVerificacion, setActualizandoVerificacion] = useState(false);
-
-  // Cargas de la Base de Datos
   const cargarTodosLosDirigentes = async () => {
     try {
       const response = await fetch(`${API_URL}/dirigentes`);
@@ -71,68 +66,63 @@ export default function Calendario({ navigation }) {
     } catch (error) { console.error('Error cargando dirigentes:', error); }
   };
 
-const fetchEventos = async () => {
-  try {
-    const [resAct, resAsam] = await Promise.all([
-      fetch(`${API_URL}/actividades`),
-      fetch(`${API_URL}/asambleas`)
-    ]);
-    
-    const dataAct = await resAct.json();
-    const dataAsam = await resAsam.json();
-    
-    const formatted = {};
-    const coloresTipos = { 
-      'redes': '#FFFF00', 
-      'reunión': '#4CAF50', 
-      'religioso': '#E50F0F', 
-      'integración': '#2196F3',
-      'asamblea': '#FF9800', 
-      'otro': '#9C27B0'
-    };
+  const fetchEventos = async () => {
+    try {
+      const [resAct, resAsam] = await Promise.all([
+        fetch(`${API_URL}/actividades`),
+        fetch(`${API_URL}/asambleas`)
+      ]);
 
-      // Procesar Actividades
+      const dataAct = await resAct.json();
+      const dataAsam = await resAsam.json();
+
+      const formatted = {};
+      const coloresTipos = {
+        'redes': '#FFFF00',
+        'reunión': '#4CAF50',
+        'religioso': '#E50F0F',
+        'integración': '#2196F3',
+        'asamblea': '#FF9800',
+        'otro': '#9C27B0'
+      };
+
       const arrAct = Array.isArray(dataAct) ? dataAct : (dataAct.actividades || []);
-    arrAct.forEach((act) => {
-    const dateStr = String(act.fecha).substring(0, 10);
-    if (!formatted[dateStr]) formatted[dateStr] = [];
-    
-    // Busca el color, si no existe usa el de 'otro'
-    const color = coloresTipos[act.tipo?.toLowerCase()] || coloresTipos['otro'];
-    
-    formatted[dateStr].push({ key: `act_${act.id_actividad}`, color, ...act });
-  });
-      
-   // Procesar Asambleas
-    const arrAsam = Array.isArray(dataAsam) ? dataAsam : (dataAsam.asambleas || []);
-    arrAsam.forEach((asm) => {
-      const dateStr = String(asm.fecha).substring(0, 10);
-      if (!formatted[dateStr]) formatted[dateStr] = [];
-      formatted[dateStr].push({ 
-        key: `asm_${asm.id_asamblea}`, 
-        color: coloresTipos['asamblea'], 
-        tipo: 'Asamblea',
-        esAsamblea: true,
-        ...asm
+      arrAct.forEach((act) => {
+        const dateStr = String(act.fecha).substring(0, 10);
+        if (!formatted[dateStr]) formatted[dateStr] = [];
+        const color = coloresTipos[act.tipo?.toLowerCase()] || coloresTipos['otro'];
+        formatted[dateStr].push({ key: `act_${act.id_actividad}`, color, ...act });
       });
-    });
 
-    setActividadesFormateadas(formatted);
-  } catch (error) { console.error('Error:', error); }
-};
+      const arrAsam = Array.isArray(dataAsam) ? dataAsam : (dataAsam.asambleas || []);
+      arrAsam.forEach((asm) => {
+        const dateStr = String(asm.fecha).substring(0, 10);
+        if (!formatted[dateStr]) formatted[dateStr] = [];
+        formatted[dateStr].push({
+          key: `asm_${asm.id_asamblea}`,
+          color: coloresTipos['asamblea'],
+          tipo: 'Asamblea',
+          esAsamblea: true,
+          ...asm
+        });
+      });
+
+      setActividadesFormateadas(formatted);
+    } catch (error) { console.error('Error:', error); }
+  };
 
   const cargarAsistentes = async (actividad) => {
     try {
       let url = `${API_URL}/actividades/${actividad.id_actividad}/asistentes`;
       if (actividad.esAsamblea) {
-         url = `${API_URL}/asistencia/fecha/${actividad.fecha.substring(0, 10)}`;
+        url = `${API_URL}/asistencia/fecha/${actividad.fecha.substring(0, 10)}`;
       }
-      
+
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await response.json();
-      
+
       let listaAsistentes = Array.isArray(data) ? data : [];
 
       if (actividad.esAsamblea) {
@@ -145,12 +135,12 @@ const fetchEventos = async () => {
       }
 
       setAsistentes(listaAsistentes);
-      
+
       const miRegistro = listaAsistentes.find(d => d.id_dirigente === user.dirigente.id_dirigente);
       setMiEstadoAsistencia(miRegistro ? miRegistro.estado : null);
-    } catch (error) { 
+    } catch (error) {
       console.error('Error cargando asistentes:', error);
-      setAsistentes([]); 
+      setAsistentes([]);
     }
   };
 
@@ -179,9 +169,9 @@ const fetchEventos = async () => {
 
     try {
       let url = `${API_URL}/actividades/${actividadSeleccionada.id_actividad}/confirmar`;
-      let bodyData = { 
+      let bodyData = {
         id_dirigente: user.dirigente.id_dirigente,
-        estado 
+        estado
       };
       let method = 'POST';
 
@@ -197,13 +187,13 @@ const fetchEventos = async () => {
 
       const response = await fetch(url, {
         method: method,
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify(bodyData)
       });
-      
+
       if (response.ok) {
         cargarAsistentes(actividadSeleccionada);
       } else {
@@ -235,7 +225,7 @@ const fetchEventos = async () => {
     const year = nuevaActividad.fechaObj.getFullYear();
     const month = String(nuevaActividad.fechaObj.getMonth() + 1).padStart(2, '0');
     const day = String(nuevaActividad.fechaObj.getDate()).padStart(2, '0');
-    
+
     try {
       const response = await fetch(`${API_URL}/actividades`, {
         method: 'POST',
@@ -289,127 +279,204 @@ const fetchEventos = async () => {
   const verificarAsistencia = actividadSeleccionada ? actividadSeleccionada.verificar_asistencia !== false : true;
   const puedeGestionarActividad = rol === 'Coordinación' || comite === actividadSeleccionada?.tipo;
 
+  const coloresLeyenda = [
+    { color: '#FF9800', label: 'Asamblea' },
+    { color: '#4CAF50', label: 'Reunión' },
+    { color: '#E50F0F', label: 'Religioso' },
+    { color: '#2196F3', label: 'Integración' },
+    { color: '#FFFF00', label: 'Redes' },
+    { color: '#9C27B0', label: 'Otro' },
+  ];
+
   return (
     <View style={styles.container}>
-      <WaveBackground style={{ pointerEvents: 'none' }} />
-      <SectionTitle title="Calendario" showBackButton={true} onBackPress={() => navigation.goBack()} />
-      
-      {/* CALENDARIO */}
-      <View style={styles.calendarContainer}>
-        <Calendar
-          markedDates={actividadesFormateadas}
-          onDayPress={(day) => setDiaSeleccionado(day.dateString)}
-          dayComponent={({ date, state }) => {
-            const dayEvents = actividadesFormateadas[date.dateString] || [];
-            return (
-              <TouchableOpacity style={styles.dayCell} onPress={() => setDiaSeleccionado(date.dateString)}>
-                <Text style={{ textAlign: 'center', color: state === 'disabled' ? '#ccc' : '#222', fontWeight: state === 'today' ? 'bold' : 'normal' }}>
-                  {date.day}
-                </Text>
-                <View style={styles.eventsContainer}>
-                  {dayEvents.map((ev, i) => <View key={i} style={[styles.eventPill, { backgroundColor: ev.color }]} />)}
-                </View>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Calendario</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.calendarContainer}>
+          <Calendar
+            markedDates={actividadesFormateadas}
+            onDayPress={(day) => setDiaSeleccionado(day.dateString)}
+            dayComponent={({ date, state }) => {
+              const dayEvents = actividadesFormateadas[date.dateString] || [];
+              const isSelected = diaSeleccionado === date.dateString;
+              const isToday = state === 'today';
+              return (
+                <TouchableOpacity
+                  style={[
+                    styles.dayCell,
+                    isSelected && styles.dayCellSelected,
+                    isToday && styles.dayCellToday,
+                  ]}
+                  onPress={() => setDiaSeleccionado(date.dateString)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.dayText,
+                    state === 'disabled' && styles.dayTextDisabled,
+                    isSelected && styles.dayTextSelected,
+                    isToday && styles.dayTextToday,
+                  ]}>
+                    {date.day}
+                  </Text>
+                  <View style={styles.eventsRow}>
+                    {dayEvents.slice(0, 3).map((ev, i) => (
+                      <View key={i} style={[styles.eventDot, { backgroundColor: ev.color }]} />
+                    ))}
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
+            theme={{
+              calendarBackground: '#fff',
+              textDayFontWeight: '500',
+              textMonthFontWeight: 'bold',
+              textDayHeaderFontWeight: '600',
+              textDayFontSize: 14,
+              textMonthFontSize: 16,
+              textDayHeaderFontSize: 11,
+              arrowColor: '#FFA726',
+              todayTextColor: '#FFA726',
+              selectedDayBackgroundColor: '#FFA726',
+              selectedDayTextColor: '#fff',
+              monthTextColor: '#22335D',
+              textDisabledColor: '#ccc',
+              dayTextColor: '#333',
+            }}
+          />
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.legendScroll}
+          contentContainerStyle={styles.legendContent}
+        >
+          {coloresLeyenda.map((item, idx) => (
+            <View key={idx} style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: item.color }]} />
+              <Text style={styles.legendLabel}>{item.label}</Text>
+            </View>
+          ))}
+        </ScrollView>
+
+        {diaSeleccionado && (
+          <View style={styles.previewContainer}>
+            <View style={styles.previewHeader}>
+              <View>
+                <Text style={styles.previewTitle}>Actividades</Text>
+                <Text style={styles.previewDate}>{diaSeleccionado}</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.closePreviewBtn}
+                onPress={() => setDiaSeleccionado(null)}
+              >
+                <Ionicons name="close" size={18} color="#666" />
               </TouchableOpacity>
-            );
-          }}
-        />
-      </View>
+            </View>
+            {(!actividadesFormateadas[diaSeleccionado] || actividadesFormateadas[diaSeleccionado].length === 0) ? (
+              <View style={styles.noActivitiesContainer}>
+                <Ionicons name="calendar-outline" size={28} color="#ccc" />
+                <Text style={styles.noPreviewText}>No hay actividades</Text>
+              </View>
+            ) : (
+              actividadesFormateadas[diaSeleccionado].map((item) => (
+                <TouchableOpacity
+                  key={item.key}
+                  style={[styles.previewCard, { borderLeftColor: item.color }]}
+                  onPress={() => { setActividadSeleccionada(item); cargarAsistentes(item); setModalDetalleVisible(true); }}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.previewCardContent}>
+                    <Text style={styles.previewCardTitle} numberOfLines={1}>{item.titulo}</Text>
+                    <Text style={styles.previewCardSub}>{item.tipo}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color="#999" />
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+        )}
 
-      {/* LEYENDA */}
-      <View style={styles.legendContainer}>
-        <View style={styles.legendColorBar}>
-          <View style={[styles.colorSegment, { backgroundColor: '#FF9800' }]} /><View style={[styles.colorSegment, { backgroundColor: '#4CAF50' }]} /><View style={[styles.colorSegment, { backgroundColor: '#E50F0F' }]} /><View style={[styles.colorSegment, { backgroundColor: '#2196F3' }]} /><View style={[styles.colorSegment, { backgroundColor: '#FFFF00' }]} /><View style={[styles.colorSegment, { backgroundColor: '#9C27B0' }]} />
-        </View>
-        <View style={styles.legendLabels}>
-          <Text style={styles.legendText}>Asambleas</Text><Text style={styles.legendText}>Reunión</Text><Text style={styles.legendText}>Religioso</Text><Text style={styles.legendText}>Integración</Text><Text style={styles.legendText}>Redes</Text><Text style={styles.legendText}>Otro</Text>
-        </View>
-      </View>
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
 
-      {/* BOTÓN FLOTANTE CREAR ACTIVIDAD (visible para todos) */}
-      <TouchableOpacity style={styles.fab} onPress={abrirModalCrear}> 
-        <Ionicons name="add" size={30} color="#fff" />
+      <TouchableOpacity style={styles.fab} onPress={abrirModalCrear} activeOpacity={0.8}>
+        <Ionicons name="add" size={26} color="#fff" />
       </TouchableOpacity>
 
-      {/* VISTA PREVIA DEL DÍA */}
-      {diaSeleccionado && (
-        <View style={styles.previewContainer}>
-          <View style={styles.previewHeader}>
-            <Text style={styles.previewTitle}>Actividades del {diaSeleccionado}</Text>
-            <TouchableOpacity onPress={() => setDiaSeleccionado(null)}><Ionicons name="close" size={20} color="#666" /></TouchableOpacity>
-          </View>
-          {(!actividadesFormateadas[diaSeleccionado] || actividadesFormateadas[diaSeleccionado].length === 0) ? (
-            <Text style={styles.noPreviewText}>No hay actividades.</Text>
-          ) : (
-            actividadesFormateadas[diaSeleccionado].map((item) => (
-              <TouchableOpacity key={item.key} style={[styles.previewCard, { borderLeftColor: item.color }]} onPress={() => { setActividadSeleccionada(item); cargarAsistentes(item); setModalDetalleVisible(true); }}>
-                <Text style={styles.previewCardTitle}>{item.titulo}</Text>
-                <Text style={styles.previewCardSub} numberOfLines={1}>{item.tipo}</Text>
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
-      )}
-
-      {/* MODAL DETALLES DE ACTIVIDAD */}
       <Modal visible={modalDetalleVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: '#fff', width: '90%', maxHeight: '85%' }]}>
-            <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'center', color: '#333' }}>Detalles de la Actividad</Text>
-            
+          <View style={styles.modalContent}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Detalles de la Actividad</Text>
+
             {actividadSeleccionada && (
-              <ScrollView showsVerticalScrollIndicator={false} style={{ marginBottom: 15 }}>
-                <Text style={styles.detailLabel}>Título:</Text><Text style={styles.detailValue}>{actividadSeleccionada.titulo}</Text>
-                <Text style={styles.detailLabel}>Fecha:</Text><Text style={styles.detailValue}>{actividadSeleccionada.fecha?.substring(0, 10)}</Text>
-                <Text style={styles.detailLabel}>Tipo / Comité:</Text><Text style={styles.detailValue}>{actividadSeleccionada.tipo}</Text>
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.modalScroll}>
+                <Text style={styles.detailLabel}>Título</Text>
+                <Text style={styles.detailValue}>{actividadSeleccionada.titulo}</Text>
+
+                <Text style={styles.detailLabel}>Fecha</Text>
+                <Text style={styles.detailValue}>{actividadSeleccionada.fecha?.substring(0, 10)}</Text>
+
+                <Text style={styles.detailLabel}>Tipo / Comité</Text>
+                <Text style={styles.detailValue}>{actividadSeleccionada.tipo}</Text>
+
                 {(rol === 'Coordinación' || actividadSeleccionada.esAsamblea) && (
                   <>
-                    <Text style={styles.detailLabel}>Responsable / Encargado:</Text>
+                    <Text style={styles.detailLabel}>Responsable / Encargado</Text>
                     <Text style={styles.detailValue}>
-                      {actividadSeleccionada.esAsamblea 
-                        ? (actividadSeleccionada.encargado_nombre 
-                            ? `${actividadSeleccionada.encargado_nombre} ${actividadSeleccionada.encargado_apellido || ''}`.trim() 
-                            : 'Sin asignar')
+                      {actividadSeleccionada.esAsamblea
+                        ? (actividadSeleccionada.encargado_nombre
+                          ? `${actividadSeleccionada.encargado_nombre} ${actividadSeleccionada.encargado_apellido || ''}`.trim()
+                          : 'Sin asignar')
                         : actividadSeleccionada.responsable}
                     </Text>
                   </>
                 )}
-                <Text style={styles.detailLabel}>Descripción:</Text><Text style={styles.detailValue}>{actividadSeleccionada.descripcion}</Text>
 
-                
+                <Text style={styles.detailLabel}>Descripción</Text>
+                <Text style={styles.detailValue}>{actividadSeleccionada.descripcion || 'Sin descripción'}</Text>
 
                 {actividadSeleccionada.esAsamblea && (
                   <View style={styles.asambleaCardContainer}>
-                  {(() => {
-                    const yaCalifico = actividadSeleccionada.calificaciones?.some(c => c.id_dirigente === user.dirigente.id_dirigente);
-                    return (
-                      <TouchableOpacity
-                        style={[
-                          { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-                          yaCalifico ? { backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#D1FAE5' } : { backgroundColor: '#2660ffff' }
-                        ]}
-                        onPress={() => setAsambleaACalificar(actividadSeleccionada)}
-                        activeOpacity={0.8}
-                      >
-                        <Ionicons name={yaCalifico ? 'eye' : 'star'} size={16} color={yaCalifico ? '#10B981' : '#FFF'} style={{ marginRight: 6 }} />
-                        <Text style={{ color: yaCalifico ? '#10B981' : '#FFF', fontSize: 14, fontWeight: '700' }}>
-                          {yaCalifico ? 'Ver calificación' : 'Calificar'}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })()}
+                    {(() => {
+                      const yaCalifico = actividadSeleccionada.calificaciones?.some(c => c.id_dirigente === user.dirigente.id_dirigente);
+                      return (
+                        <TouchableOpacity
+                          style={[
+                            styles.calificarBtn,
+                            yaCalifico ? styles.calificarBtnVer : styles.calificarBtnCalificar
+                          ]}
+                          onPress={() => setAsambleaACalificar(actividadSeleccionada)}
+                          activeOpacity={0.8}
+                        >
+                          <Ionicons name={yaCalifico ? 'eye' : 'star'} size={16} color={yaCalifico ? '#10B981' : '#FFF'} />
+                          <Text style={[styles.calificarBtnText, yaCalifico && styles.calificarBtnTextVer]}>
+                            {yaCalifico ? 'Ver calificación' : 'Calificar'}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })()}
                   </View>
                 )}
 
-                <View style={{ marginTop: 15 }}>
+                <View style={styles.asistenciaSection}>
                   {puedeGestionarActividad && (
                     <View style={styles.verificarRow}>
-                      <Text style={styles.verificarLabel}>Verificar asistencia a esta actividad</Text>
+                      <Text style={styles.verificarLabel}>Verificar asistencia</Text>
                       <Switch
                         value={verificarAsistencia}
                         onValueChange={(v) => toggleVerificarAsistencia(v)}
                         disabled={actualizandoVerificacion}
                         trackColor={{ false: '#CBD5E1', true: '#FFA726' }}
-                        thumbColor={verificarAsistencia ? '#FFF' : '#FFF'}
+                        thumbColor="#FFF"
                         ios_backgroundColor="#CBD5E1"
                       />
                     </View>
@@ -418,42 +485,44 @@ const fetchEventos = async () => {
                   {verificarAsistencia && (
                     <>
                       {estaBloqueadaConfirmacion(actividadSeleccionada.fecha) && (
-                        <Text style={{ color: '#E50F0F', fontSize: 12, marginTop: 10, textAlign: 'center', fontWeight: 'bold' }}>
+                        <Text style={styles.blockedText}>
                           Ya no puedes cancelar tu asistencia (quedan 2 días o menos).
                         </Text>
                       )}
                       <Text style={styles.detailLabel}>¿Asistirás a esta actividad?</Text>
                       <View style={styles.asistenciaBotonesRow}>
-                        <TouchableOpacity 
+                        <TouchableOpacity
                           style={[
-                            styles.btnAsistencia, 
+                            styles.btnAsistencia,
+                            styles.btnAsistenciaSi,
                             miEstadoAsistencia === 'si' && styles.btnAsistenciaSiActivo
-                          ]} 
+                          ]}
                           onPress={() => registrarAsistencia('si')}
                           activeOpacity={0.8}
                         >
-                          <Ionicons 
-                            name={miEstadoAsistencia === 'si' ? "checkmark-circle" : "checkmark-circle-outline"} 
-                            size={18} 
-                            color={miEstadoAsistencia === 'si' ? "#FFF" : "#475569"} 
+                          <Ionicons
+                            name={miEstadoAsistencia === 'si' ? "checkmark-circle" : "checkmark-circle-outline"}
+                            size={18}
+                            color={miEstadoAsistencia === 'si' ? "#FFF" : "#10B981"}
                           />
                           <Text style={[styles.btnAsistenciaText, miEstadoAsistencia === 'si' && styles.textActivo]}>
                             Sí Asistiré
                           </Text>
                         </TouchableOpacity>
 
-                        <TouchableOpacity 
+                        <TouchableOpacity
                           style={[
-                            styles.btnAsistencia, 
+                            styles.btnAsistencia,
+                            styles.btnAsistenciaNo,
                             miEstadoAsistencia === 'no' && styles.btnAsistenciaNoActivo
-                          ]} 
+                          ]}
                           onPress={() => registrarAsistencia('no')}
                           activeOpacity={0.8}
                         >
-                          <Ionicons 
-                            name={miEstadoAsistencia === 'no' ? "close-circle" : "close-circle-outline"} 
-                            size={18} 
-                            color={miEstadoAsistencia === 'no' ? "#FFF" : "#475569"} 
+                          <Ionicons
+                            name={miEstadoAsistencia === 'no' ? "close-circle" : "close-circle-outline"}
+                            size={18}
+                            color={miEstadoAsistencia === 'no' ? "#FFF" : "#EF4444"}
                           />
                           <Text style={[styles.btnAsistenciaText, miEstadoAsistencia === 'no' && styles.textActivo]}>
                             No Asistiré
@@ -469,18 +538,16 @@ const fetchEventos = async () => {
                   let mostrarAsistentes = false;
                   if (actividadSeleccionada.esAsamblea) {
                     const idUser = user.dirigente.id_dirigente;
-                    let esEncargado = idUser === actividadSeleccionada.id_encargado || 
-                                      idUser === actividadSeleccionada.id_encargado_pitar || 
-                                      idUser === actividadSeleccionada.id_encargado_tiempo;
+                    let esEncargado = idUser === actividadSeleccionada.id_encargado ||
+                      idUser === actividadSeleccionada.id_encargado_pitar ||
+                      idUser === actividadSeleccionada.id_encargado_tiempo;
                     if (actividadSeleccionada.otros_encargados) {
                       try {
                         const otros = typeof actividadSeleccionada.otros_encargados === 'string' ? JSON.parse(actividadSeleccionada.otros_encargados) : actividadSeleccionada.otros_encargados;
                         if (Array.isArray(otros) && otros.includes(idUser)) {
                           esEncargado = true;
                         }
-                      } catch (e) {
-                        // ignore
-                      }
+                      } catch (e) { }
                     }
                     mostrarAsistentes = rol === 'Coordinación' || esEncargado;
                   } else {
@@ -489,34 +556,40 @@ const fetchEventos = async () => {
 
                   if (mostrarAsistentes) {
                     return (
-                      <View style={{ marginTop: 25, borderTopWidth: 1, borderColor: '#eee', paddingTop: 10 }}>
-                        <Text style={styles.detailLabel}>Confirmaron Asistencia ({losQueVan.length}):</Text>
+                      <View style={styles.listaAsistentes}>
+                        <Text style={styles.listaTitle}>
+                          <Ionicons name="checkmark-circle" size={14} color="#10B981" /> Asisten ({losQueVan.length})
+                        </Text>
                         {losQueVan.map(a => (
                           <View key={a.id_dirigente} style={styles.dirigenteItemRow}>
-                            <View style={styles.avatarContainer}>
-                              {a.foto ? <Image source={{ uri: a.foto }} style={styles.avatarImage} /> : <Ionicons name="person" size={14} color="#2e7d32" />}
+                            <View style={[styles.avatarContainer, { backgroundColor: '#DCFCE7' }]}>
+                              {a.foto ? <Image source={{ uri: a.foto }} style={styles.avatarImage} /> : <Ionicons name="person" size={12} color="#10B981" />}
                             </View>
-                            <Text style={[styles.detailValueInline, { color: '#2e7d32' }]}>{a.nombre} {a.apellido}</Text>
+                            <Text style={[styles.detailValueInline, { color: '#10B981' }]}>{a.nombre} {a.apellido}</Text>
                           </View>
                         ))}
 
-                        <Text style={[styles.detailLabel, { marginTop: 10 }]}>No Asistirán ({losQueNoVan.length}):</Text>
+                        <Text style={[styles.listaTitle, { marginTop: 12 }]}>
+                          <Ionicons name="close-circle" size={14} color="#EF4444" /> No asisten ({losQueNoVan.length})
+                        </Text>
                         {losQueNoVan.map(a => (
                           <View key={a.id_dirigente} style={styles.dirigenteItemRow}>
-                            <View style={styles.avatarContainer}>
-                              {a.foto ? <Image source={{ uri: a.foto }} style={styles.avatarImage} /> : <Ionicons name="person" size={14} color="#d32f2f" />}
+                            <View style={[styles.avatarContainer, { backgroundColor: '#FEE2E2' }]}>
+                              {a.foto ? <Image source={{ uri: a.foto }} style={styles.avatarImage} /> : <Ionicons name="person" size={12} color="#EF4444" />}
                             </View>
-                            <Text style={[styles.detailValueInline, { color: '#d32f2f' }]}>{a.nombre} {a.apellido}</Text>
+                            <Text style={[styles.detailValueInline, { color: '#EF4444' }]}>{a.nombre} {a.apellido}</Text>
                           </View>
                         ))}
 
-                        <Text style={[styles.detailLabel, { marginTop: 10 }]}>Sin Confirmar ({sinConfirmar.length}):</Text>
+                        <Text style={[styles.listaTitle, { marginTop: 12 }]}>
+                          <Ionicons name="help-circle" size={14} color="#94A3B8" /> Sin confirmar ({sinConfirmar.length})
+                        </Text>
                         {sinConfirmar.map(d => (
                           <View key={d.id_dirigente} style={styles.dirigenteItemRow}>
-                            <View style={styles.avatarContainer}>
-                              {d.foto ? <Image source={{ uri: d.foto }} style={styles.avatarImage} /> : <Ionicons name="person" size={14} color="#888" />}
+                            <View style={[styles.avatarContainer, { backgroundColor: '#F1F5F9' }]}>
+                              {d.foto ? <Image source={{ uri: d.foto }} style={styles.avatarImage} /> : <Ionicons name="person" size={12} color="#94A3B8" />}
                             </View>
-                            <Text style={[styles.detailValueInline, { color: '#888' }]}>{d.nombre} {d.apellido}</Text>
+                            <Text style={[styles.detailValueInline, { color: '#94A3B8' }]}>{d.nombre} {d.apellido}</Text>
                           </View>
                         ))}
                       </View>
@@ -527,14 +600,13 @@ const fetchEventos = async () => {
               </ScrollView>
             )}
 
-            <TouchableOpacity style={{ backgroundColor: '#FFA726', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 5 }} onPress={() => setModalDetalleVisible(false)}>
-              <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: 'bold' }}>Cerrar</Text>
+            <TouchableOpacity style={styles.cerrarModalBtn} onPress={() => setModalDetalleVisible(false)}>
+              <Text style={styles.cerrarModalText}>Cerrar</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* MODAL CALIFICAR ASAMBLEA (a nivel de pantalla, fuera del modal de detalles) */}
       <ModalCalificacionAsamblea
         visible={!!asambleaACalificar}
         asamblea={asambleaACalificar}
@@ -548,60 +620,94 @@ const fetchEventos = async () => {
         }}
       />
 
-      {/* MODAL CREAR ACTIVIDAD */}
       <Modal visible={modalActividadVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: '#fff', width: '90%', maxHeight: '90%' }]}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' }}>Nueva Actividad</Text>
-            
-            <TextInput style={styles.input} placeholder="Título" value={nuevaActividad.titulo} onChangeText={(text) => setNuevaActividad({ ...nuevaActividad, titulo: text })} />
-            
-            {/* AQUÍ IMPLEMENTAMOS NUESTRO COMPONENTE FECHAPICKER */}
-            <FechaPicker 
-              fechaObj={nuevaActividad.fechaObj}
-              onFechaChange={(nuevaFecha) => setNuevaActividad({ ...nuevaActividad, fechaObj: nuevaFecha })}
-            />
+          <View style={styles.modalContent}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Nueva Actividad</Text>
 
-            <TextInput style={[styles.input, { backgroundColor: '#e9ecef' }]} placeholder="Responsable" value={nuevaActividad.responsable} editable={false} />
-            
-            <TouchableOpacity style={[styles.input, { justifyContent: 'center', backgroundColor: '#fff' }]} onPress={() => setModalTipoVisible(true)}>
-              <Text style={{ color: nuevaActividad.tipo ? '#333' : '#888' }}>{nuevaActividad.tipo || 'Seleccione Tipo'}</Text>
-            </TouchableOpacity>
-            
-            <TextInput style={[styles.input, { height: 80, textAlignVertical: 'top' }]} placeholder="Descripción" multiline value={nuevaActividad.descripcion} onChangeText={(text) => setNuevaActividad({ ...nuevaActividad, descripcion: text })} />
-            
-            <View style={styles.verificarRow}>
-              <Text style={styles.verificarLabel}>¿Verificar asistencia a la actividad?</Text>
-              <Switch
-                value={nuevaActividad.verificarAsistencia !== false}
-                onValueChange={(v) => setNuevaActividad({ ...nuevaActividad, verificarAsistencia: v })}
-                trackColor={{ false: '#CBD5E1', true: '#FFA726' }}
-                thumbColor="#FFF"
-                ios_backgroundColor="#CBD5E1"
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.modalScroll}>
+              <Text style={styles.inputLabel}>Título</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Título de la actividad"
+                placeholderTextColor="#999"
+                value={nuevaActividad.titulo}
+                onChangeText={(text) => setNuevaActividad({ ...nuevaActividad, titulo: text })}
               />
-            </View>
-            
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
-              <TouchableOpacity style={[styles.button, { backgroundColor: '#ccc' }]} onPress={() => setModalActividadVisible(false)}>
-                <Text style={{ color: '#333', fontWeight: 'bold' }}>Cancelar</Text>
+
+              <FechaPicker
+                fechaObj={nuevaActividad.fechaObj}
+                onFechaChange={(nuevaFecha) => setNuevaActividad({ ...nuevaActividad, fechaObj: nuevaFecha })}
+              />
+
+              <Text style={styles.inputLabel}>Responsable</Text>
+              <View style={styles.inputDisabled}>
+                <Text style={styles.inputDisabledText}>{nuevaActividad.responsable}</Text>
+              </View>
+
+              <Text style={styles.inputLabel}>Tipo</Text>
+              <TouchableOpacity
+                style={styles.inputTouchable}
+                onPress={() => setModalTipoVisible(true)}
+              >
+                <Text style={{ color: nuevaActividad.tipo ? '#333' : '#999' }}>
+                  {nuevaActividad.tipo || 'Seleccione Tipo'}
+                </Text>
+                <Ionicons name="chevron-down" size={16} color="#999" />
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.button, { backgroundColor: '#FFA726' }]} onPress={handleGuardarActividad}>
-                <Text style={{ color: '#fff', fontWeight: 'bold' }}>Guardar</Text>
-              </TouchableOpacity>
-            </View>
+
+              <Text style={styles.inputLabel}>Descripción</Text>
+              <TextInput
+                style={[styles.input, styles.inputMultiline]}
+                placeholder="Descripción (opcional)"
+                placeholderTextColor="#999"
+                multiline
+                value={nuevaActividad.descripcion}
+                onChangeText={(text) => setNuevaActividad({ ...nuevaActividad, descripcion: text })}
+              />
+
+              <View style={styles.verificarRow}>
+                <Text style={styles.verificarLabel}>¿Verificar asistencia?</Text>
+                <Switch
+                  value={nuevaActividad.verificarAsistencia !== false}
+                  onValueChange={(v) => setNuevaActividad({ ...nuevaActividad, verificarAsistencia: v })}
+                  trackColor={{ false: '#CBD5E1', true: '#FFA726' }}
+                  thumbColor="#FFF"
+                  ios_backgroundColor="#CBD5E1"
+                />
+              </View>
             </ScrollView>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.btnModal, styles.btnCancelar]}
+                onPress={() => setModalActividadVisible(false)}
+              >
+                <Text style={styles.btnCancelarText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.btnModal, styles.btnGuardar]}
+                onPress={handleGuardarActividad}
+              >
+                <Text style={styles.btnGuardarText}>Guardar</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
 
-      {/* MODAL TIPO */}
       <Modal visible={modalTipoVisible} transparent animationType="fade">
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalTipoVisible(false)}>
-          <View style={[styles.modalContent, { width: '70%', padding: 10 }]}>
+          <View style={styles.tipoModalContent}>
+            <Text style={styles.tipoModalTitle}>Selecciona un tipo</Text>
             {obtenerTiposPermitidos().map((opcion, index) => (
-              <TouchableOpacity key={index} style={{ paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#eee', alignItems: 'center' }} onPress={() => { setNuevaActividad({ ...nuevaActividad, tipo: opcion }); setModalTipoVisible(false); }}>
-                <Text style={{ fontSize: 16, color: '#333' }}>{opcion}</Text>
+              <TouchableOpacity
+                key={index}
+                style={styles.tipoOption}
+                onPress={() => { setNuevaActividad({ ...nuevaActividad, tipo: opcion }); setModalTipoVisible(false); }}
+              >
+                <Text style={styles.tipoOptionText}>{opcion}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -614,36 +720,275 @@ const fetchEventos = async () => {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f6f8', paddingTop: 50 },
-  calendarContainer: { flex: 1, backgroundColor: '#fff', marginHorizontal: 15, borderRadius: 15, padding: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
-  dayCell: { width: 32, height: 45, alignItems: 'center' },
-  eventsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginTop: 2, width: '100%' },
-  eventPill: { width: '90%', height: 4, borderRadius: 2, marginTop: 2 },
-  legendContainer: { paddingHorizontal: 20, paddingBottom: 10, paddingTop: 10, marginTop:20,backgroundColor:'rgba(255, 255, 255, 0.7)', borderRadius:80 ,margin:10 },
-  legendColorBar: { flexDirection: 'row', height: 4, borderRadius: 2, overflow: 'hidden', marginBottom: 8 },
-  colorSegment: { flex: 1 },
-  legendLabels: { flexDirection: 'row', justifyContent: 'space-between' },
-  legendText: { fontSize: 10, color: '#666' },
-  fab: { position: 'absolute', right: 20, bottom: 100, backgroundColor: '#FFA726', width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { width: '80%', backgroundColor: '#fef1e6', borderRadius: 16, padding: 20, elevation: 10 },
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, marginBottom: 15, backgroundColor: '#fafafa' },
-  button: { flex: 1, padding: 12, borderRadius: 8, alignItems: 'center', marginHorizontal: 5 },
-  previewContainer: { backgroundColor: '#fff', marginHorizontal: 15, marginTop: 10, borderRadius: 12, padding: 15, maxHeight: 180, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
-  previewHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  previewTitle: { fontWeight: 'bold', fontSize: 14, color: '#333' },
-  noPreviewText: { color: '#888', fontSize: 13, textAlign: 'center', marginVertical: 10 },
-  previewCard: { backgroundColor: '#f9f9f9', padding: 10, borderRadius: 8, marginBottom: 6, borderLeftWidth: 4 },
-  previewCardTitle: { fontWeight: 'bold', fontSize: 14, color: '#222' },
-  previewCardSub: { fontSize: 12, color: '#666' },
-  detailLabel: { fontSize: 12, fontWeight: 'bold', color: '#888', marginTop: 8 },
-  detailValue: { fontSize: 15, color: '#333', backgroundColor: '#f5f5f5', padding: 8, borderRadius: 6, marginTop: 2 },
-  dirigenteItemRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f5f5f5', padding: 6, borderRadius: 6, marginTop: 4 },
-  avatarContainer: { width: 26, height: 26, borderRadius: 13, backgroundColor: '#e0e0e0', alignItems: 'center', justifyContent: 'center', marginRight: 8, overflow: 'hidden' },
-  avatarImage: { width: '100%', height: '100%', resizeMode: 'cover' },
-  detailValueInline: { fontSize: 14, fontWeight: '500' },
+  container: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+  },
+  header: {
+    backgroundColor: '#22335D',
+    paddingVertical: 14,
+    paddingHorizontal: 15,
+    borderRadius: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+    margin: 10,
+    marginTop: 40,
+  },
+  backBtn: {
+    marginRight: 10,
+    padding: 4,
+  },
+  headerTitle: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: 'bold',
+    flex: 1,
+    textAlign: 'center',
+    marginRight: 24,
+  },
+  headerSpacer: {
+    width: 0,
+  },
+  scrollContent: {
+    flex: 1,
+  },
+  calendarContainer: {
+    backgroundColor: '#fff',
+    marginHorizontal: 10,
+    marginTop: 10,
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+  },
+  dayCell: {
+    width: CELL_SIZE,
+    height: CELL_SIZE + 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+  dayCellSelected: {
+    backgroundColor: '#FFA726',
+  },
+  dayCellToday: {
+    borderWidth: 1.5,
+    borderColor: '#FFA726',
+  },
+  dayText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+  },
+  dayTextDisabled: {
+    color: '#ccc',
+  },
+  dayTextSelected: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  dayTextToday: {
+    color: '#FFA726',
+    fontWeight: 'bold',
+  },
+  eventsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 2,
+    gap: 2,
+  },
+  eventDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+  },
+  legendScroll: {
+    marginTop: 10,
+    maxHeight: 36,
+  },
+  legendContent: {
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    gap: 12,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendLabel: {
+    fontSize: 10,
+    color: '#666',
+  },
+  previewContainer: {
+    backgroundColor: '#fff',
+    marginHorizontal: 10,
+    marginTop: 10,
+    borderRadius: 12,
+    padding: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  previewTitle: {
+    fontWeight: 'bold',
+    fontSize: 14,
+    color: '#22335D',
+  },
+  previewDate: {
+    fontSize: 11,
+    color: '#888',
+    marginTop: 2,
+  },
+  closePreviewBtn: {
+    padding: 4,
+  },
+  noActivitiesContainer: {
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  noPreviewText: {
+    color: '#aaa',
+    fontSize: 12,
+    marginTop: 6,
+  },
+  previewCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 6,
+    borderLeftWidth: 3,
+  },
+  previewCardContent: {
+    flex: 1,
+  },
+  previewCardTitle: {
+    fontWeight: '600',
+    fontSize: 13,
+    color: '#222',
+  },
+  previewCardSub: {
+    fontSize: 11,
+    color: '#888',
+    marginTop: 2,
+  },
+  bottomSpacer: {
+    height: 70,
+  },
+  fab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 75,
+    backgroundColor: '#FFA726',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    maxHeight: '85%',
+  },
+  modalHandle: {
+    width: 36,
+    height: 4,
+    backgroundColor: '#ddd',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#22335D',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  modalScroll: {
+    maxHeight: 400,
+  },
+  detailLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#888',
+    marginTop: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  detailValue: {
+    fontSize: 14,
+    color: '#333',
+    backgroundColor: '#f8f9fa',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 4,
+  },
   asambleaCardContainer: {
-    marginTop: 15,
+    marginTop: 14,
+  },
+  calificarBtn: {
+    flexDirection: 'row',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  calificarBtnCalificar: {
+    backgroundColor: '#22335D',
+  },
+  calificarBtnVer: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  calificarBtnText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  calificarBtnTextVer: {
+    color: '#10B981',
+  },
+  asistenciaSection: {
+    marginTop: 14,
   },
   verificarRow: {
     flexDirection: 'row',
@@ -655,18 +1000,24 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    marginBottom: 15,
+    marginBottom: 12,
   },
   verificarLabel: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#334155',
-    marginRight: 10,
+  },
+  blockedText: {
+    color: '#EF4444',
+    fontSize: 11,
+    marginBottom: 8,
+    textAlign: 'center',
+    fontWeight: '600',
   },
   asistenciaBotonesRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     marginTop: 8,
   },
   btnAsistencia: {
@@ -674,13 +1025,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    paddingVertical: 11,
     borderRadius: 10,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 6,
+    borderWidth: 1.5,
+    gap: 5,
+  },
+  btnAsistenciaSi: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
+  },
+  btnAsistenciaNo: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
   },
   btnAsistenciaSiActivo: {
     backgroundColor: '#10B981',
@@ -691,11 +1047,160 @@ const styles = StyleSheet.create({
     borderColor: '#DC2626',
   },
   btnAsistenciaText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#475569',
   },
   textActivo: {
     color: '#FFFFFF',
+  },
+  listaAsistentes: {
+    marginTop: 16,
+    borderTopWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingTop: 12,
+  },
+  listaTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 6,
+  },
+  dirigenteItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    padding: 6,
+    borderRadius: 6,
+    marginTop: 3,
+  },
+  avatarContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  detailValueInline: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  cerrarModalBtn: {
+    backgroundColor: '#22335D',
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  cerrarModalText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  inputLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#888',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+    backgroundColor: '#fff',
+    fontSize: 14,
+    color: '#333',
+  },
+  inputMultiline: {
+    height: 70,
+    textAlignVertical: 'top',
+  },
+  inputDisabled: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+    backgroundColor: '#F1F5F9',
+  },
+  inputDisabledText: {
+    color: '#64748B',
+    fontSize: 14,
+  },
+  inputTouchable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+    backgroundColor: '#fff',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  btnModal: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  btnCancelar: {
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  btnCancelarText: {
+    color: '#64748B',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  btnGuardar: {
+    backgroundColor: '#FFA726',
+  },
+  btnGuardarText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  tipoModalContent: {
+    width: '75%',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    elevation: 10,
+  },
+  tipoModalTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 8,
+    color: '#22335D',
+  },
+  tipoOption: {
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    alignItems: 'center',
+  },
+  tipoOptionText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
   },
 });
