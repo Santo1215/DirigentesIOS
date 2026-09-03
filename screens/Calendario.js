@@ -40,11 +40,13 @@ export default function Calendario({ navigation }) {
 
   const [modalActividadVisible, setModalActividadVisible] = useState(false);
   const [modalTipoVisible, setModalTipoVisible] = useState(false);
+  const [actividadEditandoId, setActividadEditandoId] = useState(null);
   const [nuevaActividad, setNuevaActividad] = useState({
     titulo: '', descripcion: '', fechaObj: new Date(),
     responsable: user?.dirigente ? `${user.dirigente.nombre} ${user.dirigente.apellido}` : '',
     tipo: user?.dirigente?.comite || 'Otro',
-    verificarAsistencia: true
+    verificarAsistencia: true,
+    esAsamblea: false
   });
 
   const [asambleaACalificar, setAsambleaACalificar] = useState(null);
@@ -207,11 +209,30 @@ export default function Calendario({ navigation }) {
   const abrirModalCrear = () => {
     const fechaBase = diaSeleccionado ? new Date(`${diaSeleccionado}T12:00:00`) : new Date();
     const tipos = obtenerTiposPermitidos();
+    setActividadEditandoId(null);
     setNuevaActividad({
       titulo: '', descripcion: '', fechaObj: fechaBase,
       responsable: user?.dirigente ? `${user.dirigente.nombre} ${user.dirigente.apellido}` : '',
       tipo: tipos[0],
-      verificarAsistencia: true
+      verificarAsistencia: true,
+      esAsamblea: false
+    });
+    setModalActividadVisible(true);
+  };
+
+  const abrirModalEditar = (actividad) => {
+    const fechaStr = String(actividad.fecha).substring(0, 10);
+    const [y, m, d] = fechaStr.split('-').map(Number);
+    setActividadEditandoId(actividad.id_actividad);
+    const tipos = obtenerTiposPermitidos();
+    setNuevaActividad({
+      titulo: actividad.titulo || '',
+      descripcion: actividad.descripcion || '',
+      fechaObj: new Date(y, m - 1, d),
+      responsable: actividad.responsable || (user?.dirigente ? `${user.dirigente.nombre} ${user.dirigente.apellido}` : ''),
+      tipo: actividad.esAsamblea ? 'Asamblea' : (tipos.includes(actividad.tipo) ? actividad.tipo : tipos[0]),
+      verificarAsistencia: actividad.verificar_asistencia !== false,
+      esAsamblea: !!actividad.esAsamblea
     });
     setModalActividadVisible(true);
   };
@@ -225,27 +246,95 @@ export default function Calendario({ navigation }) {
     const year = nuevaActividad.fechaObj.getFullYear();
     const month = String(nuevaActividad.fechaObj.getMonth() + 1).padStart(2, '0');
     const day = String(nuevaActividad.fechaObj.getDate()).padStart(2, '0');
+    const fecha = `${year}-${month}-${day}`;
 
     try {
-      const response = await fetch(`${API_URL}/actividades`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const esEditar = !!actividadEditandoId;
+      const esAsamblea = nuevaActividad.esAsamblea;
+
+      const url = esEditar
+        ? esAsamblea
+          ? `${API_URL}/asambleas/${actividadEditandoId}`
+          : `${API_URL}/actividades/${actividadEditandoId}`
+        : esAsamblea
+          ? `${API_URL}/asambleas`
+          : `${API_URL}/actividades`;
+      const method = esEditar ? 'PUT' : 'POST';
+
+      let bodyData = {};
+      if (esAsamblea) {
+        bodyData = {
           titulo: nuevaActividad.titulo,
           descripcion: nuevaActividad.descripcion,
-          fecha: `${year}-${month}-${day}`,
+          fecha,
+          materiales: ''
+        };
+      } else {
+        bodyData = {
+          titulo: nuevaActividad.titulo,
+          descripcion: nuevaActividad.descripcion,
+          fecha,
           responsable: nuevaActividad.responsable,
           tipo: nuevaActividad.tipo,
           verificar_asistencia: nuevaActividad.verificarAsistencia !== false
-        })
+        };
+      }
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyData)
       });
 
       if (response.ok) {
-        Alert.alert('Éxito', 'Actividad guardada correctamente');
+        Alert.alert('Éxito', esEditar ? 'Actividad actualizada' : 'Actividad guardada correctamente');
         setModalActividadVisible(false);
+        setActividadEditandoId(null);
         fetchEventos();
+      } else {
+        const json = await response.json().catch(() => ({}));
+        Alert.alert('Error', json.error || 'No se pudo guardar la actividad');
       }
     } catch (error) { console.error('Error guardando actividad:', error); }
+  };
+
+  const eliminarActividad = async () => {
+    if (!actividadSeleccionada || !actividadSeleccionada.id_actividad) return;
+    Alert.alert(
+      'Eliminar actividad',
+      '¿Estás seguro de que deseas eliminar esta actividad? Esta acción no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const esAsamblea = !!actividadSeleccionada.esAsamblea;
+              const id = esAsamblea ? actividadSeleccionada.id_asamblea : actividadSeleccionada.id_actividad;
+              const url = esAsamblea
+                ? `${API_URL}/asambleas/${id}`
+                : `${API_URL}/actividades/${id}`;
+
+              const response = await fetch(url, {
+                method: 'DELETE',
+              });
+
+              if (response.ok) {
+                Alert.alert('Éxito', 'Actividad eliminada');
+                setModalDetalleVisible(false);
+                fetchEventos();
+              } else {
+                const json = await response.json().catch(() => ({}));
+                Alert.alert('Error', json.error || 'No se pudo eliminar la actividad');
+              }
+            } catch (error) {
+              Alert.alert('Error', 'No se pudo conectar con el servidor.');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const toggleVerificarAsistencia = async (nuevoValor) => {
@@ -277,7 +366,38 @@ export default function Calendario({ navigation }) {
   );
 
   const verificarAsistencia = actividadSeleccionada ? actividadSeleccionada.verificar_asistencia !== false : true;
-  const puedeGestionarActividad = rol === 'Coordinación' || comite === actividadSeleccionada?.tipo;
+
+  const esEncargadoAsamblea = (act) => {
+    if (!act || !act.esAsamblea) return false;
+    const idUser = user.dirigente.id_dirigente;
+    let esEncargado = idUser === act.id_encargado ||
+      idUser === act.id_encargado_pitar ||
+      idUser === act.id_encargado_tiempo;
+    if (act.otros_encargados) {
+      try {
+        const otros = typeof act.otros_encargados === 'string' ? JSON.parse(act.otros_encargados) : act.otros_encargados;
+        if (Array.isArray(otros) && otros.includes(idUser)) {
+          esEncargado = true;
+        }
+      } catch (e) {}
+    }
+    return esEncargado;
+  };
+
+  const esResponsable = (act) => {
+    if (!act || !act.responsable) return false;
+    const nombreUsuario = `${user.dirigente.nombre} ${user.dirigente.apellido}`;
+    return act.responsable.toLowerCase() === nombreUsuario.toLowerCase();
+  };
+
+  const puedeGestionarActividad = (() => {
+    if (!actividadSeleccionada) return false;
+    if (rol === 'Coordinación') return true;
+    if (actividadSeleccionada.esAsamblea) {
+      return esEncargadoAsamblea(actividadSeleccionada);
+    }
+    return (comite && actividadSeleccionada.tipo && comite.toLowerCase() === actividadSeleccionada.tipo.toLowerCase()) || esResponsable(actividadSeleccionada);
+  })();
 
   const coloresLeyenda = [
     { color: '#FF9800', label: 'Asamblea' },
@@ -537,19 +657,7 @@ export default function Calendario({ navigation }) {
                   if (!verificarAsistencia) return null;
                   let mostrarAsistentes = false;
                   if (actividadSeleccionada.esAsamblea) {
-                    const idUser = user.dirigente.id_dirigente;
-                    let esEncargado = idUser === actividadSeleccionada.id_encargado ||
-                      idUser === actividadSeleccionada.id_encargado_pitar ||
-                      idUser === actividadSeleccionada.id_encargado_tiempo;
-                    if (actividadSeleccionada.otros_encargados) {
-                      try {
-                        const otros = typeof actividadSeleccionada.otros_encargados === 'string' ? JSON.parse(actividadSeleccionada.otros_encargados) : actividadSeleccionada.otros_encargados;
-                        if (Array.isArray(otros) && otros.includes(idUser)) {
-                          esEncargado = true;
-                        }
-                      } catch (e) { }
-                    }
-                    mostrarAsistentes = rol === 'Coordinación' || esEncargado;
+                    mostrarAsistentes = rol === 'Coordinación' || esEncargadoAsamblea(actividadSeleccionada);
                   } else {
                     mostrarAsistentes = rol === 'Coordinación' || comite === actividadSeleccionada.tipo;
                   }
@@ -597,6 +705,27 @@ export default function Calendario({ navigation }) {
                   }
                   return null;
                 })()}
+
+                {puedeGestionarActividad && (
+                  <View style={styles.gestionarRow}>
+                    <TouchableOpacity
+                      style={[styles.btnGestionar, styles.btnEditar]}
+                      onPress={() => abrirModalEditar(actividadSeleccionada)}
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons name="create-outline" size={18} color="#FFF" />
+                      <Text style={styles.btnGestionarText}>Editar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.btnGestionar, styles.btnEliminar]}
+                      onPress={eliminarActividad}
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons name="trash-outline" size={18} color="#FFF" />
+                      <Text style={styles.btnGestionarText}>Eliminar</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </ScrollView>
             )}
 
@@ -624,7 +753,7 @@ export default function Calendario({ navigation }) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Nueva Actividad</Text>
+            <Text style={styles.modalTitle}>{actividadEditandoId ? 'Editar Actividad' : 'Nueva Actividad'}</Text>
 
             <ScrollView showsVerticalScrollIndicator={false} style={styles.modalScroll}>
               <Text style={styles.inputLabel}>Título</Text>
@@ -1202,5 +1331,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     fontWeight: '500',
+  },
+  gestionarRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+  },
+  btnGestionar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 6,
+  },
+  btnEditar: {
+    backgroundColor: '#22335D',
+  },
+  btnEliminar: {
+    backgroundColor: '#EF4444',
+  },
+  btnGestionarText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
